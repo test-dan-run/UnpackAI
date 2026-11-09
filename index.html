@@ -153,7 +153,7 @@ td.what{font-weight:600;min-width:200px}
 .sec{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);white-space:nowrap}
 
 /* interactive figure */
-.viz{background:var(--panel);border:1px solid var(--rule);border-radius:var(--r);display:grid}
+.viz{background:var(--panel);border:1px solid var(--rule);border-radius:var(--r);display:grid;align-content:start}
 .viz-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:16px 18px 0}
 .viz-head h3{font-size:17px;margin-top:2px}
 .viz-body{padding:14px 18px 18px;display:grid;gap:14px;min-width:0}
@@ -296,14 +296,14 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
   <div class="topbar-inner">
     <div class="brand">
       <svg class="brand-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2 9h20" stroke="currentColor" stroke-width="1.8"/><rect x="6" y="12.5" width="9" height="3.5" rx="1" fill="var(--hl)"/></svg>
-      UnpackAI <small>research, opened up</small>
+      UnpackAI <small>explanations of new AI research</small>
     </div>
     <form class="unpack-form" id="unpackForm" autocomplete="off">
       <label for="unpackUrl" class="eyebrow" style="position:absolute;left:-9999px">Paper or blog URL</label>
       <input id="unpackUrl" type="text" placeholder="Paste an arXiv link, lab blog post or PDF URL" value="https://arxiv.org/abs/2412.19437">
       <button class="btn primary" type="submit">Unpack</button>
     </form>
-    <span class="proto-note">Prototype · sample data</span>
+    <span class="proto-note">Prototype with sample data</span>
   </div>
   <div class="pipeline" id="pipeline" hidden>
     <ol id="pipelineSteps"></ol>
@@ -320,23 +320,23 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
     <div class="feeds">
       <span class="eyebrow">Sources you follow</span>
       <span><b>arXiv</b> cs.CL, cs.LG, cs.AI</span>
-      <span><b>Lab blogs</b> 9 research blogs, checked hourly</span>
+      <span><b>Lab blogs</b> 9 research blogs, checked every hour</span>
       <span><b>Queue</b> new items are unpacked as they arrive</span>
     </div>
   </aside>
 
   <main class="dossier" id="dossier">
     <div class="paper-head">
-      <div class="eyebrow">Technical report · <a href="https://arxiv.org/abs/2412.19437" target="_blank" rel="noopener">arXiv 2412.19437</a> · Dec 2024 · DeepSeek-AI</div>
+      <div class="eyebrow">Technical report, <a href="https://arxiv.org/abs/2412.19437" target="_blank" rel="noopener">arXiv 2412.19437</a>, December 2024, DeepSeek-AI</div>
       <h1>DeepSeek-V3 Technical Report</h1>
-      <p class="thesis">A 671B-parameter mixture-of-experts model trained for 2.788M H800 GPU hours. The work rests on four moves: <span class="mark">balancing experts without a loss penalty</span>, <span class="mark">predicting two tokens ahead</span>, <span class="mark">training in FP8</span>, and overlapping communication with compute.</p>
+      <p class="thesis">DeepSeek-V3 is a mixture-of-experts language model, which means each token is sent to a few small sub-networks called experts. The model has 671B parameters and uses 37B of them for each token. The main new ideas are <span class="mark">keeping the experts evenly loaded without an extra loss term</span>, <span class="mark">training the model to also predict the token after next</span>, and <span class="mark">running most of the training math in 8-bit floating point (FP8)</span>. The authors also overlap network communication with computation, so the GPUs spend less time waiting.</p>
       <div class="specs">
-        <div class="spec"><b>671B</b><span>total params</span></div>
-        <div class="spec"><b>37B</b><span>active per token</span></div>
+        <div class="spec"><b>671B</b><span>total parameters</span></div>
+        <div class="spec"><b>37B</b><span>parameters used per token</span></div>
         <div class="spec"><b>14.8T</b><span>pre-training tokens</span></div>
         <div class="spec"><b>61</b><span>layers</span></div>
-        <div class="spec"><b>128K</b><span>context</span></div>
-        <div class="spec"><b>2.788M</b><span>H800 GPU-hours</span></div>
+        <div class="spec"><b>128K</b><span>tokens of context</span></div>
+        <div class="spec"><b>2.788M</b><span>H800 GPU hours</span></div>
       </div>
       <div class="legend">
         <span><i class="sw novel"></i>New in this paper</span>
@@ -356,33 +356,32 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
     <!-- ================= OVERVIEW ================= -->
     <section class="panel" data-panel="overview">
       <div>
-        <div class="section-title"><h2>What made it work</h2><span class="eyebrow">Novelty map</span></div>
-        <p class="lede" style="margin-top:8px">UnpackAI separates what a paper actually introduces from what it reuses. Each row links to the interactive explanation and to the section of the paper where the claim is made.</p>
+        <div class="section-title"><h2>New ideas in the paper</h2><span class="eyebrow">Summary table</span></div>
+        <p class="lede" style="margin-top:8px">UnpackAI marks which ideas a paper introduces and which ideas it reuses from earlier work. Each row links to an interactive explanation, and the last column gives the section of the paper that describes the idea.</p>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Idea</th><th>Status</th><th>What it replaces</th><th>Why it works</th><th>Where</th></tr></thead>
+          <thead><tr><th>Idea</th><th>Status</th><th>What it replaces</th><th>Why it works</th><th>Paper section</th></tr></thead>
           <tbody id="noveltyRows"></tbody>
         </table>
       </div>
 
       <div class="split">
         <div class="viz">
-          <div class="viz-head"><div><div class="eyebrow">Where the novelty lives</div><h3>Contribution profile</h3></div></div>
+          <div class="viz-head"><div><div class="eyebrow">Ideas by area</div><h3>Number of new and inherited ideas in each area, across all tabs</h3></div></div>
           <div class="viz-body">
             <div class="svg-wrap"><svg id="profileSvg" viewBox="0 0 420 190" width="100%" role="img" aria-label="Count of ideas by area and status"></svg></div>
-            <p class="notice">This report is mostly an <b>architecture and systems</b> paper. Data gets one paragraph, so the Data tab flags what is left undisclosed.</p>
+            <p class="notice">Most of the new ideas in the report are about architecture and about systems, meaning the software that runs training across many GPUs. The report describes the training data in one short section, so the Data tab lists what the authors did not disclose.</p>
           </div>
         </div>
         <div class="viz">
-          <div class="viz-head"><div><div class="eyebrow">Read it in this order</div><h3>Suggested path</h3></div></div>
+          <div class="viz-head"><div><div class="eyebrow">Reading order</div><h3>Suggested order for reading the dossier</h3></div></div>
           <div class="viz-body">
             <ol class="gaps" style="padding-left:20px">
-              <li><a href="#architecture">Router playground</a>: why MoE balance usually costs quality, and the bias trick that avoids it.</li>
-              <li><a href="#architecture">KV-cache calculator</a>: what MLA saves at long context.</li>
-              <li><a href="#training">Training timeline</a>: the learning-rate and batch-size plan across 14.8T tokens.</li>
-              <li><a href="#training">FP8 tile scaling</a>: why per-tile scales keep low-precision training stable.</li>
-              <li><a href="#evidence">Evidence</a>: which claims are ablated and which are self-reported.</li>
+              <li>The <a href="#architecture">router simulation</a> shows why an auxiliary balancing loss can lower quality, and how the bias method keeps the experts balanced without it.</li>
+              <li>The <a href="#architecture">KV cache calculator</a> shows how much memory MLA saves for long inputs.</li>
+              <li>The <a href="#training">Training loop tab</a> shows the learning rate schedule, and it shows why a separate scale for each tile keeps FP8 training accurate.</li>
+              <li>The <a href="#evidence">Evidence tab</a> shows which claims the authors tested with ablations and which claims they only state.</li>
             </ol>
           </div>
         </div>
@@ -392,14 +391,14 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
     <!-- ================= ARCHITECTURE ================= -->
     <section class="panel" data-panel="architecture" hidden>
       <div>
-        <div class="section-title"><h2>Architecture, diffed against a standard Transformer</h2></div>
-        <p class="lede" style="margin-top:8px">Select any block. Turn the highlight off to see the plain decoder this model starts from.</p>
+        <div class="section-title"><h2>Architecture compared with a standard Transformer</h2></div>
+        <p class="lede" style="margin-top:8px">Select a block to read what it does and whether it is new. Turn off the highlighting to show every block in grey, as in a standard Transformer decoder.</p>
       </div>
 
       <div class="viz">
         <div class="viz-head">
-          <div><div class="eyebrow">Interactive · model map</div><h3>One forward pass</h3></div>
-          <button class="btn small" id="flatToggle" aria-pressed="true">Highlight what changed</button>
+          <div><div class="eyebrow">Interactive model diagram</div><h3>Blocks in one forward pass</h3></div>
+          <button class="btn small" id="flatToggle" aria-pressed="true">Highlight new and inherited blocks</button>
         </div>
         <div class="viz-body">
           <div class="arch" id="arch">
@@ -413,7 +412,7 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
                 <button class="blk inh" data-blk="mla">Multi-head Latent Attention <small>MLA</small></button>
                 <button class="blk std" data-blk="norm">RMSNorm</button>
                 <div class="moe-row">
-                  <button class="blk novel" data-blk="router">Router + bias</button>
+                  <button class="blk novel" data-blk="router">Router with bias</button>
                   <button class="blk inh" data-blk="moe">DeepSeekMoE</button>
                 </div>
               </div>
@@ -421,9 +420,9 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
               <button class="blk std" data-blk="head">Output head <small>predicts t+1</small></button>
             </div>
             <div class="stack">
-              <div class="stack-label">Training-only module</div>
+              <div class="stack-label">Module used only in training</div>
               <button class="blk novel" data-blk="mtp">MTP module <small>depth 1</small></button>
-              <div class="arrow">shares embedding + head</div>
+              <div class="arrow">shares the embedding and output head</div>
               <button class="blk std" data-blk="mtpblock">1 Transformer block</button>
               <div class="arrow">↓</div>
               <button class="blk novel" data-blk="mtphead">Head <small>predicts t+2</small></button>
@@ -435,7 +434,7 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
 
       <div class="viz" id="routerViz">
         <div class="viz-head">
-          <div><div class="eyebrow">Interactive · simulation</div><h3>Router playground: auxiliary-loss-free load balancing</h3></div>
+          <div><div class="eyebrow">Interactive simulation</div><h3>Router simulation of load balancing without an auxiliary loss</h3></div>
           <div class="controls">
             <div class="seg" role="group" aria-label="Balancing strategy">
               <button data-mode="none" aria-pressed="false">No balancing</button>
@@ -449,35 +448,35 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
         <div class="viz-body">
           <div class="stats">
             <div class="stat"><b id="rStep">0</b><span>training steps</span></div>
-            <div class="stat"><b id="rImb">–</b><span>busiest expert ÷ average</span></div>
-            <div class="stat"><b id="rIdle">–</b><span>experts under half load</span></div>
+            <div class="stat"><b id="rImb">0</b><span>busiest expert load / average load</span></div>
+            <div class="stat"><b id="rIdle">0</b><span>experts below half the average load</span></div>
           </div>
           <div class="svg-wrap"><svg id="routerSvg" viewBox="0 0 680 270" width="100%" role="img" aria-label="Tokens routed to each of 16 experts, with each expert's routing bias"></svg></div>
           <div class="svg-wrap"><svg id="routerSpark" viewBox="0 0 680 70" width="100%" role="img" aria-label="Load imbalance over time"></svg></div>
-          <p class="notice"><b>What to notice.</b> Without balancing, a few popular experts take most tokens and the rest barely train. With bias adjustment, each expert gets a bias that is nudged down when it is overloaded and up when it is idle. The bias only changes <i>which</i> experts are picked. Gate weights still use the raw affinity, so no extra loss term pulls against language modelling. Scaled down here to 16 experts, top-2. V3 uses 256 routed experts plus 1 shared, top-8, and keeps a tiny sequence-level balance loss (α = 0.0001) as a safety net.</p>
+          <p class="notice"><b>What to notice:</b> With no balancing, a few popular experts get most of the tokens, so the other experts get few tokens to learn from. With bias adjustment, an expert's bias goes down when the expert gets too many tokens, and it goes up when the expert gets too few. As a result, the loads move close to the even share within a few steps. The bias only changes which experts the router picks, and the output weights still use the scores without the bias. Because of the split, the model needs no extra loss term for balance. The simulation uses 16 experts and picks 2 per token, while DeepSeek-V3 uses 256 routed experts and 1 shared expert and picks 8 routed experts per token. DeepSeek-V3 also keeps a very small balancing loss for each sequence (α = 0.0001), which prevents extreme imbalance inside one sequence.</p>
         </div>
       </div>
 
       <div class="two-col">
         <div class="viz">
-          <div class="viz-head"><div><div class="eyebrow">Interactive · calculator</div><h3>KV cache at inference</h3></div></div>
+          <div class="viz-head"><div><div class="eyebrow">Interactive calculator</div><h3>KV cache size during text generation</h3></div></div>
           <div class="viz-body">
             <label for="kvCtx" class="eyebrow">Context length: <span class="mono" id="kvCtxLabel"></span></label>
             <input class="range" type="range" id="kvCtx" min="0" max="5" step="1" value="5">
             <div id="kvBars" style="display:grid;gap:10px"></div>
-            <p class="notice"><b>What to notice.</b> MLA caches one 512-dim latent plus a 64-dim RoPE key per token per layer (576 numbers) instead of full keys and values for 128 heads (32,768 numbers). The MHA and GQA rows are hypothetical: the same 61-layer model with standard attention. BF16, one sequence.</p>
+            <p class="notice"><b>What to notice:</b> The KV cache holds the keys and values of earlier tokens, so the model doesn't recompute them for each new token. For each token and layer, MLA stores 576 numbers, which are a compressed vector of 512 numbers and a position key of 64 numbers. Standard multi-head attention (MHA) with 128 heads would store 32,768 numbers. The MHA and GQA (grouped query attention) rows show a hypothetical version of the same 61-layer model with standard attention. All sizes assume one sequence stored in BF16, which uses 2 bytes per number.</p>
           </div>
         </div>
         <div class="viz">
           <div class="viz-head">
-            <div><div class="eyebrow">Interactive · stepper</div><h3>Multi-token prediction</h3></div>
+            <div><div class="eyebrow">Interactive example</div><h3>Multi-token prediction</h3></div>
             <div class="controls"><button class="btn small" id="mtpPrev" aria-label="Previous position">←</button><button class="btn small" id="mtpNext" aria-label="Next position">→</button></div>
           </div>
           <div class="viz-body">
             <div class="tokens" id="mtpTokens"></div>
-            <div class="tok-legend"><span><i class="sw std"></i> context seen</span><span><i class="sw inh"></i> main head target (t+1)</span><span><i class="sw novel"></i> MTP target (t+2)</span></div>
+            <div class="tok-legend"><span><i class="sw std"></i> tokens already seen</span><span><i class="sw inh"></i> main head target (t+1)</span><span><i class="sw novel"></i> MTP target (t+2)</span></div>
             <p class="mono" style="font-size:13px" id="mtpLoss"></p>
-            <p class="notice"><b>What to notice.</b> Every position now yields two training signals. The MTP module takes the main model's hidden state plus the embedding of the next token, so the causal chain is kept. At inference it can be dropped, or used for speculative decoding: the paper reports 85–90% acceptance of the second token.</p>
+            <p class="notice"><b>What to notice:</b> Each position gives two training targets, which are the next token for the main head and the token after it for the MTP module. The MTP module takes the main model's hidden vector and the embedding of the next token, so each prediction still only uses earlier tokens. When the model generates text, the MTP module can be removed. It can also be used for speculative decoding, where the model proposes the second token early and checks it in the next step. The paper reports that 85 to 90% of the proposed second tokens are accepted.</p>
           </div>
         </div>
       </div>
@@ -486,39 +485,39 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
     <!-- ================= DATA ================= -->
     <section class="panel" data-panel="data" hidden>
       <div>
-        <div class="section-title"><h2>Data curation</h2><span class="pill warn">Thinly disclosed</span></div>
-        <p class="lede" style="margin-top:8px">UnpackAI scores how much of the data recipe a paper actually reveals. Here the report gives the totals and two concrete techniques, fill-in-the-middle and document packing, but not the source mix or filtering rules.</p>
+        <div class="section-title"><h2>Data curation</h2><span class="pill warn">Partly disclosed</span></div>
+        <p class="lede" style="margin-top:8px">UnpackAI checks how much of the data preparation a paper describes. The DeepSeek-V3 report gives the total number of tokens, and it describes fill-in-the-middle and document packing. The report does not give the data sources, their proportions, or the filtering rules.</p>
       </div>
 
       <div class="disclose" id="discloseRows"></div>
 
       <div class="viz">
         <div class="viz-head">
-          <div><div class="eyebrow">Interactive · data transform</div><h3>Fill-in-the-middle (FIM), Prefix-Suffix-Middle format</h3></div>
+          <div><div class="eyebrow">Interactive example</div><h3>Fill-in-the-middle (FIM) in the Prefix-Suffix-Middle format</h3></div>
           <div class="controls"><button class="btn small" id="fimResample">Pick a new split</button></div>
         </div>
         <div class="viz-body">
           <div class="split">
             <div><div class="eyebrow" style="margin-bottom:6px">Original document</div><pre class="code" id="fimOrig"></pre></div>
-            <div><div class="eyebrow" style="margin-bottom:6px">What the model is trained on</div><pre class="code" id="fimOut" style="white-space:pre-wrap;word-break:break-word"></pre></div>
+            <div><div class="eyebrow" style="margin-bottom:6px">Training text after the FIM rewrite</div><pre class="code" id="fimOut" style="white-space:pre-wrap;word-break:break-word"></pre></div>
           </div>
           <div class="tok-legend"><span><i class="sw std"></i> prefix</span><span><i class="sw inh"></i> suffix</span><span><i class="sw novel"></i> middle, moved to the end</span></div>
           <div style="display:grid;gap:8px">
             <div class="controls"><button class="btn small" id="fimSample">Sample 1,000 documents</button><span class="mono" style="font-size:13px" id="fimCount"></span></div>
             <div class="dots" id="fimDots" aria-hidden="true"></div>
           </div>
-          <p class="notice"><b>What to notice.</b> The middle span is moved to the end, so ordinary left-to-right training teaches the model to fill gaps given what comes after. It is applied to about 10% of documents, which keeps next-token ability intact. FIM is borrowed from DeepSeekCoder-V2, so it is marked as inherited.</p>
+          <p class="notice"><b>What to notice:</b> The FIM rewrite moves the middle part of a document to the end. The model still reads from left to right, so it learns to write the missing middle from both the start and the end of the document. The authors rewrite about 10% of documents, and the report says the rewrite doesn't hurt ordinary next-token prediction. FIM was used before in DeepSeek-Coder-V2, so the dossier marks FIM as inherited.</p>
         </div>
       </div>
 
       <div class="viz">
         <div class="viz-head">
-          <div><div class="eyebrow">Interactive · data layout</div><h3>Document packing into 4,096-token sequences</h3></div>
-          <div class="controls"><button class="btn small" id="packAgain">New stream</button></div>
+          <div><div class="eyebrow">Interactive example</div><h3>Document packing into sequences of 4,096 tokens</h3></div>
+          <div class="controls"><button class="btn small" id="packAgain">Generate new documents</button></div>
         </div>
         <div class="viz-body">
           <div class="packs" id="packs"></div>
-          <p class="notice"><b>What to notice.</b> Documents are concatenated and cut into fixed-length rows, so no compute is spent on padding. The report says it does <b>not</b> mask attention across document boundaries during pre-training: a token can attend to an unrelated document earlier in the same row.</p>
+          <p class="notice"><b>What to notice:</b> The documents are joined end to end and cut into rows of 4,096 tokens, so no computation is spent on padding. The report says the authors don't mask attention between documents during pre-training. As a result, a token can attend to an unrelated document that comes earlier in the same row.</p>
         </div>
       </div>
     </section>
@@ -526,14 +525,15 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
     <!-- ================= TRAINING ================= -->
     <section class="panel" data-panel="training" hidden>
       <div>
-        <div class="section-title"><h2>The training loop</h2></div>
-        <p class="lede" style="margin-top:8px">Scrub through pre-training to see the schedule. Then step through a single optimisation step to see which parts are new.</p>
+        <div class="section-title"><h2>Training loop</h2></div>
+        <p class="lede" style="margin-top:8px">Drag the slider to see the learning rate and batch size at any point in pre-training. The second figure goes through one training step and marks the new parts.</p>
       </div>
 
       <div class="viz">
-        <div class="viz-head"><div><div class="eyebrow">Interactive · timeline</div><h3>Pre-training schedule across 14.8T tokens</h3></div></div>
+        <div class="viz-head"><div><div class="eyebrow">Interactive timeline</div><h3>Pre-training schedule across 14.8T tokens</h3></div></div>
         <div class="viz-body">
           <div class="svg-wrap"><svg id="schedSvg" viewBox="0 0 720 270" width="100%" role="img" aria-label="Learning rate and batch size over training tokens"></svg></div>
+          <p class="proto-note">The curves follow the schedule in §4.2 of the report. The batch size increase is drawn as a straight line, because the report only says the batch size grows gradually over the first 469B tokens.</p>
           <label class="eyebrow" for="schedRange">Tokens seen</label>
           <input class="range" type="range" id="schedRange" min="0" max="14.8" step="0.01" value="6">
           <div class="readout" id="schedReadout"></div>
@@ -544,7 +544,7 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
 
       <div class="viz">
         <div class="viz-head">
-          <div><div class="eyebrow">Interactive · one step</div><h3>Inside a single optimisation step</h3></div>
+          <div><div class="eyebrow">Interactive diagram</div><h3>Stages of one training step</h3></div>
           <div class="controls"><button class="btn small primary" id="loopPlay">Play</button><button class="btn small" id="loopNext">Next stage</button></div>
         </div>
         <div class="viz-body">
@@ -557,7 +557,7 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
 
       <div class="viz">
         <div class="viz-head">
-          <div><div class="eyebrow">Interactive · numerics</div><h3>FP8 with fine-grained scaling</h3></div>
+          <div><div class="eyebrow">Interactive example</div><h3>FP8 with a separate scale for each tile</h3></div>
           <div class="controls">
             <label for="fp8Outlier" class="eyebrow">Outlier size</label>
             <input type="range" id="fp8Outlier" min="0" max="5" step="0.1" value="4" style="width:160px;accent-color:var(--blue)">
@@ -571,12 +571,12 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
               <div class="heat" id="heatTensor"></div>
             </div>
             <div>
-              <div class="heat-label"><span>One scale per tile (V3)</span><span class="mono" id="fp8TileStat"></span></div>
+              <div class="heat-label"><span>One scale per tile (as in DeepSeek-V3)</span><span class="mono" id="fp8TileStat"></span></div>
               <div class="heat" id="heatTile"></div>
             </div>
           </div>
-          <div class="heat-scale"><span>relative error 0%</span><i></i><span>≥ 50%</span><span style="margin-left:10px">● = rounded to zero</span></div>
-          <p class="notice"><b>What to notice.</b> Each row is a tile of activations; one value in the top row is an outlier. FP8 (E4M3) tops out at 448, so a single scale sized for the outlier pushes every small value toward zero. Scaling each tile separately confines the damage to the outlier's own tile. V3 uses 1×128 tiles for activations and 128×128 blocks for weights, and accumulates in higher precision. Rows of 32 are shown here for space.</p>
+          <div class="heat-scale"><span>relative error of 0%</span><i></i><span>50% or more</span><span style="margin-left:10px">● means rounded to zero</span></div>
+          <p class="notice"><b>What to notice:</b> Each row is a tile of activations, and the top row contains one very large value, called an outlier. The FP8 format used here (E4M3) can't store numbers above 448, so the scale has to shrink the outlier to 448 or less. With one scale for the whole tensor, the same scale also shrinks the small values, and many of them round to zero. With a separate scale for each tile, only the tile with the outlier loses precision. DeepSeek-V3 uses tiles of 1×128 values for activations and blocks of 128×128 values for weights, and it adds up products in higher precision. The figure shows rows of 32 values so they fit on the screen.</p>
         </div>
       </div>
     </section>
@@ -585,24 +585,24 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
     <section class="panel" data-panel="evidence" hidden>
       <div>
         <div class="section-title"><h2>Claims and how well they are supported</h2></div>
-        <p class="lede" style="margin-top:8px">Each claim is tagged by the kind of evidence behind it. An ablation isolates the idea; a self-reported figure has to be taken on trust.</p>
+        <p class="lede" style="margin-top:8px">Each claim has a tag for the kind of evidence behind it. An ablation is an experiment that removes one idea and measures the effect, while a self-reported figure has no separate check in the paper.</p>
       </div>
       <div class="claims" id="claims"></div>
 
       <div class="split">
         <div class="viz">
-          <div class="viz-head"><div><div class="eyebrow">Gaps</div><h3>What the paper does not tell you</h3></div></div>
+          <div class="viz-head"><div><div class="eyebrow">Missing information</div><h3>Information the paper does not give</h3></div></div>
           <div class="viz-body">
             <ul class="gaps">
-              <li>The pre-training data sources and their mixture weights.</li>
-              <li>Quality filters, dedup thresholds, and decontamination rules.</li>
-              <li>Total compute including research and ablation runs. The 2.788M GPU-hour figure covers the final run only.</li>
-              <li>Full reward model and prompt sets used in RL.</li>
+              <li>The sources of the pre-training data and the proportion of each source</li>
+              <li>The quality filters, the deduplication thresholds, and the rules for removing benchmark data from the training set</li>
+              <li>The total compute including research and ablation runs, because the 2.788M GPU hour figure only covers the final run</li>
+              <li>The full reward model and the prompt sets used in reinforcement learning</li>
             </ul>
           </div>
         </div>
         <div class="viz">
-          <div class="viz-head"><div><div class="eyebrow">Ask the paper · mockup</div><h3>Questions with cited answers</h3></div></div>
+          <div class="viz-head"><div><div class="eyebrow">Questions about the paper (mockup)</div><h3>Sample questions with answers that cite the paper</h3></div></div>
           <div class="viz-body qa">
             <div class="qs" id="qs"></div>
             <div class="answer" id="answer" aria-live="polite"></div>
@@ -634,7 +634,7 @@ const LIB = [
   {id:"dsv3", title:"DeepSeek-V3 Technical Report", org:"DeepSeek-AI", date:"Dec 2024", kind:"Paper", tags:["Architecture","Training","Systems"], ready:true},
   {id:"fineweb", title:"The FineWeb Datasets", org:"Hugging Face", date:"Jun 2024", kind:"Paper", tags:["Data"], ready:true},
   {id:"r1", title:"DeepSeek-R1: Incentivizing Reasoning via RL", org:"DeepSeek-AI", date:"Jan 2025", kind:"Paper", tags:["Training"], ready:true},
-  {id:"mamba", title:"Mamba: Linear-Time Sequence Modeling with Selective State Spaces", org:"CMU · Princeton", date:"Dec 2023", kind:"Paper", tags:["Architecture"], ready:true},
+  {id:"mamba", title:"Mamba: Linear-Time Sequence Modeling with Selective State Spaces", org:"CMU and Princeton", date:"Dec 2023", kind:"Paper", tags:["Architecture"], ready:true},
   {id:"blt", title:"Byte Latent Transformer", org:"Meta FAIR", date:"Dec 2024", kind:"Paper", tags:["Architecture"], ready:true},
   {id:"dclm", title:"DataComp-LM", org:"DCLM team", date:"Jun 2024", kind:"Paper", tags:["Data"], ready:true},
   {id:"muon", title:"Muon is Scalable for LLM Training", org:"Moonshot AI", date:"Feb 2025", kind:"Paper", tags:["Training"], ready:false},
@@ -652,9 +652,9 @@ function renderLib(){
   items.forEach(p=>{
     const li=document.createElement("li"), b=document.createElement("button");
     b.className="lib-item"; b.setAttribute("aria-current",p.id==="dsv3");
-    b.innerHTML=`<div class="lib-meta"><span>${p.org} · ${p.date}</span><span class="status ${p.ready?"ready":"queued"}">${p.ready?"Unpacked":"In queue"}</span></div>
+    b.innerHTML=`<div class="lib-meta"><span>${p.org}, ${p.date}</span><span class="status ${p.ready?"ready":"queued"}">${p.ready?"Unpacked":"In queue"}</span></div>
       <div class="lib-title">${p.title}</div><div class="tags">${p.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>`;
-    b.onclick=()=>{ if(p.id!=="dsv3") toast(`Only the DeepSeek-V3 dossier is built in this prototype. “${p.title}” would open here.`); };
+    b.onclick=()=>{ if(p.id!=="dsv3") toast(`The prototype only has a dossier for DeepSeek-V3. The dossier for "${p.title}" would open here.`); };
     li.appendChild(b); ul.appendChild(li);
   });
 }
@@ -662,13 +662,13 @@ $("#libSearch").addEventListener("input",renderLib);
 renderChips(); renderLib();
 
 /* ---------------- unpack pipeline mock ---------------- */
-const STAGES=["Fetch source","Parse sections & figures","Extract claims","Diff against prior work","Build visuals"];
+const STAGES=["Fetch the source","Parse sections and figures","Extract claims","Compare with earlier papers","Build interactive figures"];
 $("#unpackForm").addEventListener("submit",e=>{
   e.preventDefault();
   const pipe=$("#pipeline"), ol=$("#pipelineSteps"), res=$("#pipelineResult");
   pipe.hidden=false; res.hidden=true; ol.innerHTML=STAGES.map(s=>`<li>${s}</li>`).join("");
   const lis=$$("li",ol); let i=0;
-  const tick=()=>{ if(i>0) lis[i-1].className="done"; if(i<lis.length){lis[i].className="run";i++;setTimeout(tick,reduceMotion?50:520);} else {res.hidden=false;res.textContent="Prototype: this would run the extraction service. Showing the sample DeepSeek-V3 dossier.";} };
+  const tick=()=>{ if(i>0) lis[i-1].className="done"; if(i<lis.length){lis[i].className="run";i++;setTimeout(tick,reduceMotion?50:520);} else {res.hidden=false;res.textContent="The prototype has no extraction service yet, so it shows the sample DeepSeek-V3 dossier instead.";} };
   tick();
 });
 
@@ -684,12 +684,12 @@ showTab();
 
 /* ---------------- overview ---------------- */
 const NOVEL=[
-  {what:"Auxiliary-loss-free load balancing", status:"novel", area:"Architecture", replaces:"An auxiliary balance loss that competes with the language-modelling loss", why:"A per-expert bias steers expert selection only. Gate weights stay untouched, so balance costs no quality.", where:"§2.1.2", link:"#architecture"},
-  {what:"Multi-token prediction (depth 1)", status:"novel", area:"Objective", replaces:"Next-token loss alone", why:"Two targets per position give a denser training signal, and the extra module enables speculative decoding.", where:"§2.2", link:"#architecture"},
-  {what:"FP8 mixed-precision training at scale", status:"novel", area:"Systems", replaces:"BF16 training", why:"Tile- and block-wise scaling isolates outliers; higher-precision accumulation keeps sums accurate.", where:"§3.3", link:"#training"},
-  {what:"DualPipe pipeline parallelism", status:"novel", area:"Systems", replaces:"1F1B-style pipeline schedules", why:"Overlaps expert all-to-all communication with computation, so cross-node MoE stays efficient.", where:"§3.2.1", link:"#training"},
-  {what:"Multi-head Latent Attention", status:"inh", area:"Architecture", replaces:"Standard multi-head attention", why:"Compresses keys and values into a small latent, shrinking the KV cache. Introduced in DeepSeek-V2.", where:"§2.1.1", link:"#architecture"},
-  {what:"Reasoning distilled from R1-series models", status:"novel", area:"Post-training", replaces:"SFT on human-written answers only", why:"Long chain-of-thought data from a reasoning model is filtered and used for SFT, then refined with GRPO.", where:"§5.1–5.2", link:"#training"},
+  {what:"Load balancing without an auxiliary loss", status:"novel", area:"Architecture", replaces:"An extra balancing term in the loss, which works against the main language modeling loss", why:"The router adds a bias to each expert's score when it picks experts, but the bias does not change the expert's output weight. As a result, balancing does not need a loss term that can lower quality.", where:"§2.1.2", link:"#architecture"},
+  {what:"Multi-token prediction (depth 1)", status:"novel", area:"Objective", replaces:"A loss on the next token only", why:"Each position gives two training targets instead of one. The extra module can also be used for speculative decoding, where the model drafts a second token and checks it in the next step.", where:"§2.2", link:"#architecture"},
+  {what:"FP8 mixed precision training at large scale", status:"novel", area:"Systems", replaces:"Training in the 16-bit BF16 format", why:"Each small tile of numbers gets its own scale factor, so one very large value only affects its own tile. Sums are added up in higher precision, so rounding errors don't build up.", where:"§3.3", link:"#training"},
+  {what:"DualPipe pipeline parallelism", status:"novel", area:"Systems", replaces:"Standard pipeline schedules such as 1F1B (one forward pass, then one backward pass)", why:"DualPipe sends tokens between experts on different machines at the same time as it runs computation, so the GPUs spend less time idle.", where:"§3.2.1", link:"#training"},
+  {what:"Multi-head Latent Attention (MLA)", status:"inh", area:"Architecture", replaces:"Standard multi-head attention", why:"MLA stores one small compressed vector per token instead of full keys and values, so the KV cache is much smaller. DeepSeek-V2 introduced MLA.", where:"§2.1.1", link:"#architecture"},
+  {what:"Reasoning data distilled from R1 models", status:"novel", area:"Post-training", replaces:"Supervised fine-tuning (SFT) only on answers that people wrote", why:"The authors generate long step-by-step solutions with an R1 reasoning model and filter them. They then use the filtered solutions for SFT, followed by reinforcement learning with GRPO.", where:"§5.1 to 5.2", link:"#training"},
 ];
 const label={novel:"New",inh:"Inherited",std:"Standard"};
 $("#noveltyRows").innerHTML=NOVEL.map(n=>`<tr><td class="what"><a href="${n.link}">${n.what}</a></td><td><span class="pill ${n.status}">${label[n.status]}</span></td><td>${n.replaces}</td><td>${n.why}</td><td class="sec">${n.where}</td></tr>`).join("");
@@ -704,21 +704,21 @@ $("#noveltyRows").innerHTML=NOVEL.map(n=>`<tr><td class="what"><a href="${n.link
     let x=x0;
     if(r[1]){svg.appendChild(svgEl("rect",{x,y,width:r[1]*unit-2,height:h,rx:3,fill:"var(--hl)"}));x+=r[1]*unit;}
     if(r[2]){svg.appendChild(svgEl("rect",{x,y,width:r[2]*unit-2,height:h,rx:3,fill:"var(--inh)"}));x+=r[2]*unit;}
-    svg.appendChild(svgEl("text",{x:x+6,y:y+15},(r[1]+r[2])===0?"none":`${r[1]} new${r[2]?` · ${r[2]} inherited`:""}`));
+    svg.appendChild(svgEl("text",{x:x+6,y:y+15},(r[1]+r[2])===0?"none":`${r[1]} new${r[2]?`, ${r[2]} inherited`:""}`));
   });
 })();
 
 /* ---------------- architecture map ---------------- */
 const BLK={
-  emb:{t:"Token embedding",s:"std",p:"Byte-level BPE tokenizer with a 128K vocabulary. Hidden size 7,168.",kv:"standard"},
-  norm:{t:"RMSNorm",s:"std",p:"Pre-normalisation before attention and the feed-forward layer, as in most modern decoders.",kv:"standard"},
-  mla:{t:"Multi-head Latent Attention",s:"inh",p:"Keys and values are projected down to a 512-dim latent that is cached, then projected back up per head. A separate 64-dim key carries rotary position. This cuts KV-cache memory sharply (see the calculator below).",kv:"128 heads · head dim 128 · KV latent 512 · from DeepSeek-V2"},
-  router:{t:"Router with balancing bias",s:"novel",p:"Each token scores every expert with a sigmoid affinity. A per-expert bias is added only when choosing the top-8. After each step, the bias of overloaded experts goes down and of underloaded experts goes up. No gradient flows through it.",kv:"bias update speed γ = 0.001 · new in V3"},
-  moe:{t:"DeepSeekMoE",s:"inh",p:"One always-on shared expert plus 256 fine-grained routed experts, of which 8 fire per token. Each token is sent to at most 4 nodes, which caps cross-node traffic. The first 3 layers use a dense FFN instead.",kv:"1 shared + 256 routed · top-8 · expert dim 2,048"},
-  head:{t:"Output head",s:"std",p:"Projects the final hidden state to vocabulary logits for the next token.",kv:"standard"},
-  mtp:{t:"Multi-token prediction module",s:"novel",p:"Takes the main model's hidden state at position i and the embedding of token i+1, normalises and concatenates them, then projects back to model width. Trained jointly; can be discarded at inference.",kv:"depth D = 1 · loss weight λ = 0.3 → 0.1"},
-  mtpblock:{t:"MTP Transformer block",s:"std",p:"A single ordinary Transformer block, sequential after the main model, so each prediction keeps its full causal chain.",kv:"standard block"},
-  mtphead:{t:"MTP output head",s:"novel",p:"Shares weights with the main output head and predicts token i+2. Its cross-entropy loss is averaged and added to the main loss.",kv:"shared embedding and head"},
+  emb:{t:"Token embedding",s:"std",p:"The model uses a byte-level BPE tokenizer with a vocabulary of 128K tokens, and each token becomes a vector of 7,168 numbers.",kv:"standard"},
+  norm:{t:"RMSNorm",s:"std",p:"RMSNorm rescales the hidden vector before the attention layer and before the feed-forward layer, as most current decoder models do.",kv:"standard"},
+  mla:{t:"Multi-head Latent Attention",s:"inh",p:"MLA compresses the keys and values for each token into one vector of 512 numbers, and only the compressed vector is stored in the KV cache. When attention runs, the model expands the compressed vector back into keys and values for each head. A separate key of 64 numbers holds the position information (RoPE), and the calculator below shows how much memory MLA saves.",kv:"128 heads, head size 128, compressed size 512, introduced in DeepSeek-V2"},
+  router:{t:"Router with balancing bias",s:"novel",p:"The router gives each expert a score between 0 and 1 for the current token, and it sends the token to the 8 experts with the highest scores. The router adds a separate bias to each expert's score, but only when it picks the 8 experts. The weight on each expert's output still uses the score without the bias. After each training step, the bias goes down for experts that got too many tokens, and it goes up for experts that got too few. The bias is not trained with gradients.",kv:"bias update speed γ = 0.001, new in DeepSeek-V3"},
+  moe:{t:"DeepSeekMoE",s:"inh",p:"Each MoE layer has one shared expert that processes every token. It also has 256 smaller routed experts, and the router picks 8 of them for each token. Each token goes to experts on at most 4 machines, which limits network traffic between machines. The first 3 layers use an ordinary dense feed-forward layer instead of experts.",kv:"1 shared and 256 routed experts, 8 used per token, expert hidden size 2,048"},
+  head:{t:"Output head",s:"std",p:"The output head turns the final hidden vector into a score for every token in the vocabulary, and the model predicts the next token from the scores.",kv:"standard"},
+  mtp:{t:"Multi-token prediction module",s:"novel",p:"The MTP module takes the main model's hidden vector at position i and the embedding of token i+1. It normalizes both vectors, joins them, and projects the result back to the model's width. The module is trained together with the main model, and it can be removed when the model is used to generate text.",kv:"depth D = 1, loss weight λ = 0.3, then 0.1"},
+  mtpblock:{t:"MTP Transformer block",s:"std",p:"The MTP module has one ordinary Transformer block, which runs after the main model. The prediction for token i+2 only uses tokens up to i+1, as in normal left to right prediction.",kv:"standard block"},
+  mtphead:{t:"MTP output head",s:"novel",p:"The MTP head uses the same weights as the main output head, and it predicts token i+2. Its cross-entropy loss is multiplied by the weight λ and added to the main loss.",kv:"shares weights with the main output head"},
 };
 function showBlk(id){
   const b=BLK[id];
@@ -766,7 +766,7 @@ function drawRouter(){
     svg.appendChild(svgEl("rect",{x:x+(bw-6)/2-5,y:bh>=0?mid-bh:mid,width:10,height:Math.abs(bh)||1,fill:"var(--ink)",opacity:R.mode==="bias"?0.6:0.15}));
   });
   svg.appendChild(svgEl("line",{x1:x0,x2:x0+W,y1:sc(MEAN),y2:sc(MEAN),stroke:"var(--ink)","stroke-dasharray":"4 3","stroke-width":1.2}));
-  svg.appendChild(svgEl("text",{x:x0+W,y:12,"text-anchor":"end",style:"fill:var(--ink)"},"- - -  even share = "+MEAN+" tokens per expert"));
+  svg.appendChild(svgEl("text",{x:x0+W,y:12,"text-anchor":"end",style:"fill:var(--ink)"},"dashed line: even share of "+MEAN+" tokens per expert"));
   svg.appendChild(svgEl("line",{x1:x0,x2:x0+W,y1:236,y2:236,stroke:"var(--rule-strong)"}));
   svg.appendChild(svgEl("text",{x:x0-6,y:216,"text-anchor":"end"},"bias"));
   svg.appendChild(svgEl("text",{x:x0-6,y:228,"text-anchor":"end"},"+"));
@@ -782,7 +782,7 @@ function drawRouter(){
     sp.appendChild(svgEl("polyline",{points:pts,fill:"none",stroke:"var(--blue)","stroke-width":1.8}));
     const lv=R.hist[R.hist.length-1]; sp.appendChild(svgEl("circle",{cx:x0+(R.hist.length-1)*(W/159),cy:sy(lv),r:3.5,fill:"var(--blue)"}));
   }
-  sp.appendChild(svgEl("text",{x:x0+W,y:10,"text-anchor":"end"},"imbalance over the last 160 steps"));
+  sp.appendChild(svgEl("text",{x:x0+W,y:10,"text-anchor":"end"},"busiest expert load / average load, last 160 steps"));
   $("#rStep").textContent=R.step;
   $("#rImb").textContent=(Math.max(...R.loads)/MEAN).toFixed(2)+"×";
   $("#rIdle").textContent=R.loads.filter(l=>l<MEAN/2).length+" / "+E;
@@ -806,7 +806,7 @@ const CTX=[4096,8192,16384,32768,65536,131072], L=61, BYTES=2;
 const KV=[
   {n:"MHA (hypothetical)",per:2*128*128,c:"var(--std-ink)",s:"std"},
   {n:"GQA, 8 groups (hypothetical)",per:2*8*128,c:"var(--inh-ink)",s:"inh"},
-  {n:"MLA (as built)",per:512+64,c:"var(--hl-ink)",s:"novel"},
+  {n:"MLA (as used in DeepSeek-V3)",per:512+64,c:"var(--hl-ink)",s:"novel"},
 ];
 function gib(b){return b>=2**30?(b/2**30).toFixed(b>=100*2**30?0:1)+" GiB":(b/2**20).toFixed(0)+" MiB"}
 function drawKV(){
@@ -815,9 +815,9 @@ function drawKV(){
   $("#kvBars").innerHTML=KV.map(k=>{
     const tot=k.per*L*BYTES*ctx, w=Math.max(0.6,tot/max*100);
     const fill=k.s==="novel"?"var(--hl)":k.s==="inh"?"var(--inh)":"var(--rule-strong)";
-    return `<div><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span>${k.n}</span><span class="mono"><b>${gib(tot)}</b> · ${fmt(k.per)} values/token/layer</span></div>
+    return `<div><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span>${k.n}</span><span class="mono"><b>${gib(tot)}</b>, ${fmt(k.per)} numbers per token per layer</span></div>
     <div style="height:14px;background:var(--paper);border-radius:3px;margin-top:4px"><div style="height:100%;width:${w}%;background:${fill};border-radius:3px"></div></div></div>`;
-  }).join("")+`<p class="mono" style="font-size:12.5px;color:var(--muted)">MLA cache is ${(KV[0].per/KV[2].per).toFixed(0)}× smaller than MHA at the same width.</p>`;
+  }).join("")+`<p class="mono" style="font-size:12.5px;color:var(--muted)">The MLA cache is ${(KV[0].per/KV[2].per).toFixed(0)} times smaller than the MHA cache for a model of the same width.</p>`;
 }
 $("#kvCtx").addEventListener("input",drawKV); drawKV();
 
@@ -827,7 +827,7 @@ let mtpPos=3;
 function drawMTP(){
   $("#mtpTokens").innerHTML=SENT.map((w,i)=>{let c=i<=mtpPos?"seen":i===mtpPos+1?"t1":i===mtpPos+2?"t2":"";return `<span class="tok ${c}">${w}</span>`}).join("");
   const a=SENT[mtpPos+1], b=SENT[mtpPos+2];
-  $("#mtpLoss").innerHTML=`position ${mtpPos+1}: L = CE(“${a}”) + λ · CE(“${b}”) &nbsp; λ = 0.3 for the first 10T tokens, 0.1 after`;
+  $("#mtpLoss").innerHTML=`Position ${mtpPos+1}: L = CE("${a}") + λ × CE("${b}"), where λ = 0.3 for the first 10T tokens and 0.1 for the remaining tokens.`;
   $("#mtpPrev").disabled=mtpPos<=0; $("#mtpNext").disabled=mtpPos>=SENT.length-3;
 }
 $("#mtpPrev").onclick=()=>{mtpPos=Math.max(0,mtpPos-1);drawMTP()};
@@ -836,12 +836,12 @@ drawMTP();
 
 /* ---------------- data: disclosure ---------------- */
 const DISC=[
-  ["Corpus size","ok","Disclosed","14.8T high-quality, diverse tokens."],
-  ["Source mixture","warn","Not disclosed","Described only qualitatively: more maths and code than V2, and more languages beyond English and Chinese."],
-  ["Filtering & dedup","warn","Partial","“Refined pipeline to minimise redundancy while keeping diversity”. No thresholds or classifiers named."],
-  ["Tokenizer","ok","Disclosed","Byte-level BPE, 128K vocab. Tokens that merge punctuation with line breaks are randomly split during training to reduce boundary bias."],
-  ["FIM","ok","Disclosed","Prefix-Suffix-Middle format, applied at a rate of 0.1."],
-  ["Packing","ok","Disclosed","Documents packed into sequences, with no cross-sample attention masking during pre-training."],
+  ["Corpus size","ok","Disclosed","The authors trained on 14.8T tokens, which they describe as high quality and diverse."],
+  ["Sources and proportions","warn","Not disclosed","The report only says that the data has more math and code than the DeepSeek-V2 data, and that it covers more languages besides English and Chinese."],
+  ["Filtering and deduplication","warn","Partly disclosed","The report says the authors improved the processing pipeline to reduce repeated content while keeping the data diverse. It doesn't name any thresholds or quality classifiers."],
+  ["Tokenizer","ok","Disclosed","The tokenizer is byte-level BPE with a vocabulary of 128K tokens. Some tokens combine punctuation with line breaks, and the authors randomly split a share of the combined tokens during training to reduce token boundary bias."],
+  ["Fill-in-the-middle (FIM)","ok","Disclosed","The authors apply FIM to 10% of documents, using the Prefix-Suffix-Middle format."],
+  ["Document packing","ok","Disclosed","The authors pack documents into fixed-length sequences. During pre-training, they don't block attention between different documents in the same sequence."],
 ];
 $("#discloseRows").innerHTML=DISC.map(d=>`<div class="disclose-row"><b>${d[0]}</b><span><span class="pill ${d[1]}">${d[2]}</span></span><p>${d[3]}</p></div>`).join("");
 
@@ -883,8 +883,8 @@ function drawPacks(){
     while(room>0){const take=Math.min(room,left); segs.push({d,take,split:take<docs[d]}); room-=take; left-=take; if(left===0){d++;left=docs[d];}}
     rows.push(segs);
   }
-  $("#packs").innerHTML=rows.map((segs,r)=>`<div class="pack-row"><span class="mono">seq ${r+1}</span><div class="pack">${segs.map(s=>`<div title="Document ${s.d+1}: ${fmt(docs[s.d])} tokens${s.split?" (split across rows)":""}" style="width:${s.take/SEQ*100}%;background:${fills[s.d%fills.length]}"></div>`).join("")}</div></div>`).join("")
-    +`<p class="mono" style="font-size:12px;color:var(--muted)">${d} documents · 0 padding tokens · hover a segment for its length</p>`;
+  $("#packs").innerHTML=rows.map((segs,r)=>`<div class="pack-row"><span class="mono">row ${r+1}</span><div class="pack">${segs.map(s=>`<div title="Document ${s.d+1}: ${fmt(docs[s.d])} tokens${s.split?" (split across rows)":""}" style="width:${s.take/SEQ*100}%;background:${fills[s.d%fills.length]}"></div>`).join("")}</div></div>`).join("")
+    +`<p class="mono" style="font-size:12px;color:var(--muted)">${d} documents and 0 padding tokens. Hover over a segment to see the document length.</p>`;
 }
 $("#packAgain").onclick=drawPacks; drawPacks();
 
@@ -904,7 +904,7 @@ function drawSched(){
   const ly=v=>150-v/2.4e-4*130, by=v=>250-v/16000*55;
   [[10,14.3,"cosine decay"],[14.3,14.8,"low LR"]].forEach(([a,b,t])=>{svg.appendChild(svgEl("rect",{x:SX(a),y:14,width:SX(b)-SX(a),height:236,fill:"var(--paper)"}));});
   svg.appendChild(svgEl("text",{x:SX(12.15),y:28,"text-anchor":"middle"},"cosine decay"));
-  svg.appendChild(svgEl("text",{x:SX(5),y:28,"text-anchor":"middle"},"constant peak LR"));
+  svg.appendChild(svgEl("text",{x:SX(5),y:28,"text-anchor":"middle"},"constant learning rate"));
   [0,1e-4,2e-4].forEach(v=>{svg.appendChild(svgEl("line",{x1:60,x2:700,y1:ly(v),y2:ly(v),stroke:"var(--rule)"}));svg.appendChild(svgEl("text",{x:54,y:ly(v)+4,"text-anchor":"end"},v?v.toExponential(0):"0"))});
   svg.appendChild(svgEl("text",{x:6,y:44},"learning"));svg.appendChild(svgEl("text",{x:6,y:57},"rate"));
   [3072,15360].forEach(v=>{svg.appendChild(svgEl("line",{x1:60,x2:700,y1:by(v),y2:by(v),stroke:"var(--rule)"}));svg.appendChild(svgEl("text",{x:54,y:by(v)+4,"text-anchor":"end"},fmt(v)))});
@@ -918,36 +918,36 @@ function drawSched(){
   svg.appendChild(svgEl("line",{x1:x,x2:x,y1:14,y2:252,stroke:"var(--ink)","stroke-width":1,"stroke-dasharray":"3 3"}));
   svg.appendChild(svgEl("circle",{cx:x,cy:ly(lr(T)),r:5,fill:"var(--hl)",stroke:"var(--ink)","stroke-width":1.5}));
   svg.appendChild(svgEl("circle",{cx:x,cy:by(bsz(T)),r:4,fill:"var(--panel)",stroke:"var(--ink)","stroke-width":1.5}));
-  const phase=T<WARM?"Warm-up":T<10?"Constant LR":T<14.3?"Cosine decay":"Final low-LR phase";
+  const phase=T<WARM?"Warm-up":T<10?"Constant learning rate":T<14.3?"Cosine decay":"Final low learning rate";
   const cells=[
     [T.toFixed(2)+"T","tokens seen"],[lr(T).toExponential(2),"learning rate"],[fmt(bsz(T)),"sequences per batch"],
-    [(bsz(T)*4096/1e6).toFixed(1)+"M","tokens per step"],[T<10?"0.3":"0.1","MTP loss weight λ"],[T<14.3?"0.001":"0","router bias speed γ"],[phase,"phase"]];
+    [(bsz(T)*4096/1e6).toFixed(1)+"M","tokens per step"],[T<10?"0.3":"0.1","MTP loss weight λ"],[T<14.3?"0.001":"0","router bias speed γ"],[phase,"training phase"]];
   $("#schedReadout").innerHTML=cells.map(c=>`<div><b>${c[0]}</b><span>${c[1]}</span></div>`).join("");
 }
 $("#schedRange").addEventListener("input",drawSched); drawSched();
 
 const PHASES=[
-  {t:"Pre-training",d:"14.8T tokens · 4K context",n:"Pre-training on 14.8T tokens at 4K context, with the schedule above. The report says the run had no irrecoverable loss spikes and needed no rollbacks."},
-  {t:"Context extension",d:"4K → 32K → 128K",n:"Two stages of 1,000 steps each using YaRN: first to 32K context, then to 128K."},
-  {t:"Supervised fine-tuning",d:"1.5M instances",n:"Reasoning data is generated by an internal R1-style model and filtered; non-reasoning data is written by DeepSeek-V2.5 and checked by human annotators."},
-  {t:"Reinforcement learning",d:"GRPO",n:"Group Relative Policy Optimisation, which drops the separate critic and uses group scores as the baseline. Rewards come from rules where answers are checkable, and from a reward model otherwise."},
+  {t:"Pre-training",d:"14.8T tokens, 4K context",n:"The model is pre-trained on 14.8T tokens with a context length of 4K tokens, using the schedule in the chart. The report says the run had no unrecoverable loss spikes and needed no rollbacks to earlier checkpoints."},
+  {t:"Context extension",d:"4K to 32K to 128K tokens",n:"The authors extend the context length with the YaRN method in two stages of 1,000 steps each. First, they extend it to 32K tokens. Second, they extend it to 128K tokens."},
+  {t:"Supervised fine-tuning",d:"1.5M examples",n:"The fine-tuning set has 1.5M examples. The authors generate the reasoning examples with an internal R1 model and filter them, and they generate the other examples with DeepSeek-V2.5 and have people check them."},
+  {t:"Reinforcement learning",d:"GRPO",n:"The authors use Group Relative Policy Optimization (GRPO). GRPO compares each answer with the average score of a group of answers to the same prompt, so it doesn't need a separate critic model. The reward comes from fixed rules when an answer can be checked, e.g., a math result. For other answers, the reward comes from a reward model."},
 ];
 let phaseIdx=0;
 function drawPhases(){
   $("#phases").innerHTML=PHASES.map((p,i)=>`<button class="phase" data-i="${i}" aria-pressed="${i===phaseIdx}"><b>${p.t}</b><span>${p.d}</span></button>`).join("");
-  $("#phaseNote").innerHTML=`<b>${PHASES[phaseIdx].t}.</b> ${PHASES[phaseIdx].n}`;
+  $("#phaseNote").innerHTML=`<b>${PHASES[phaseIdx].t}:</b> ${PHASES[phaseIdx].n}`;
   $$("#phases .phase").forEach(b=>b.onclick=()=>{phaseIdx=+b.dataset.i;drawPhases()});
 }
 drawPhases();
 
 /* ---------------- training: loop ---------------- */
 const LOOP=[
-  {t:"Batch",s:"std",p:"Up to 15,360 packed sequences of 4,096 tokens. About 10% of documents carry the FIM rewrite.",k:"≈ 63M tokens per step after ramp-up"},
-  {t:"Forward",s:"novel",p:"Most matrix multiplies run in FP8 with per-tile scales. Each token is routed to 8 of 256 experts on at most 4 nodes. Expert all-to-all traffic overlaps with compute under DualPipe.",k:"FP8 GEMMs · node-limited routing"},
-  {t:"Loss",s:"novel",p:"Next-token cross-entropy plus λ times the MTP loss for token t+2, plus a very small sequence-level balance term.",k:"L = L_main + λ·L_MTP"},
-  {t:"Backward",s:"novel",p:"Activation and weight gradients are also computed in FP8. Some activations are recomputed instead of stored to save memory.",k:"FP8 Dgrad + Wgrad · recompute RMSNorm and MLA up-projections"},
-  {t:"Optimizer",s:"std",p:"AdamW with gradient clipping. Master weights stay in FP32, while the Adam moments are stored in BF16 to save memory.",k:"β₁ 0.9 · β₂ 0.95 · weight decay 0.1 · clip 1.0"},
-  {t:"Router bias",s:"novel",p:"Outside of backprop: for each expert, compare its load in this batch with the average and nudge its bias by ±γ. This is the whole load-balancing mechanism.",k:"γ = 0.001, set to 0 for the final 500B tokens"},
+  {t:"Batch",s:"std",p:"Each batch has up to 15,360 packed sequences of 4,096 tokens each. About 10% of the documents in a batch have the FIM rewrite.",k:"about 63M tokens per step once the batch size reaches its maximum"},
+  {t:"Forward",s:"novel",p:"Most matrix multiplications run in FP8, with a separate scale for each tile. The router sends each token to 8 of the 256 experts, on at most 4 machines. DualPipe runs the transfers of tokens between machines at the same time as computation.",k:"FP8 matrix multiplications, routing limited to 4 machines"},
+  {t:"Loss",s:"novel",p:"The loss is the cross-entropy on the next token, plus λ times the MTP loss on the token after it. A very small balancing term for each sequence is also added.",k:"L = L_main + λ × L_MTP"},
+  {t:"Backward",s:"novel",p:"The gradients for activations and for weights are also computed in FP8. To save memory, the authors recompute some activations during the backward pass instead of storing them.",k:"FP8 gradients, RMSNorm and MLA up-projections recomputed"},
+  {t:"Optimizer",s:"std",p:"The optimizer is AdamW with gradient clipping. The main copy of the weights stays in FP32, and the AdamW moment estimates are stored in BF16 to save memory.",k:"β₁ = 0.9, β₂ = 0.95, weight decay 0.1, gradient clipping at 1.0"},
+  {t:"Router bias",s:"novel",p:"At the end of each step, the training code compares each expert's load in the batch with the average load. It lowers the bias of each overloaded expert by γ and raises the bias of each underloaded expert by γ. The update doesn't use gradients, and it is the main way the model keeps experts balanced.",k:"γ = 0.001, set to 0 for the final 500B tokens"},
 ];
 let loopIdx=0, loopTimer=null;
 function drawLoop(){
@@ -1000,7 +1000,7 @@ function drawFP8(){
   const paint=(el,res,statEl)=>{
     el.innerHTML=res.map(r=>`<div class="${r.zero?"zero":""}" style="background:color-mix(in oklab,var(--warn) ${Math.min(100,r.err*200).toFixed(0)}%,var(--std))"></div>`).join("");
     const mean=res.reduce((s,r)=>s+r.err,0)/res.length, z=res.filter(r=>r.zero).length;
-    statEl.textContent=`mean err ${(mean*100).toFixed(1)}% · ${z} zeroed`;
+    statEl.textContent=`average error ${(mean*100).toFixed(1)}%, ${z} rounded to zero`;
   };
   paint($("#heatTensor"),quant(false),$("#fp8TensorStat"));
   paint($("#heatTile"),quant(true),$("#fp8TileStat"));
@@ -1009,17 +1009,17 @@ $("#fp8Outlier").addEventListener("input",drawFP8); drawFP8();
 
 /* ---------------- evidence ---------------- */
 const CLAIMS=[
-  {h:"Auxiliary-loss-free balancing beats an auxiliary-loss baseline",p:"Compared at two MoE scales with otherwise matched training; better on most benchmarks.",ev:"Ablated",c:"ok",w:"§4.5.2"},
-  {h:"Multi-token prediction improves downstream quality",p:"Ablated at two scales. The MTP module is dropped at inference, so the comparison has equal inference cost.",ev:"Ablated",c:"ok",w:"§4.5.1"},
-  {h:"FP8 training matches BF16 quality",p:"Validated on smaller MoE models against a BF16 baseline; relative loss error stays below 0.25%. Not shown at full scale.",ev:"Smaller-scale check",c:"warn",w:"§3.3 · App. B"},
-  {h:"Full training cost of 2.788M H800 GPU-hours (≈ $5.576M at $2/hour)",p:"Covers pre-training, context extension and post-training of the final model only. Excludes prior research and ablation runs, which the report states.",ev:"Self-reported",c:"std",w:"Table 1"},
-  {h:"Stable training with no irrecoverable loss spikes",p:"Stated in the report; no loss curves for the full run are published.",ev:"Self-reported",c:"std",w:"§1"},
+  {h:"Load balancing without an auxiliary loss gives better results than balancing with an auxiliary loss",p:"The authors compared both methods on MoE models of two sizes with the rest of the training kept the same, and the bias method scored better on most benchmarks.",ev:"Ablation",c:"ok",w:"§4.5.2"},
+  {h:"Multi-token prediction improves benchmark scores",p:"The authors tested MTP with an ablation on models of two sizes. The MTP module was removed before evaluation, so both models had the same cost at inference.",ev:"Ablation",c:"ok",w:"§4.5.1"},
+  {h:"FP8 training matches the quality of BF16 training",p:"The authors compared FP8 training with BF16 training on smaller MoE models, and the relative difference in loss stayed below 0.25%. The paper doesn't show the comparison at full scale.",ev:"Checked on smaller models",c:"warn",w:"§3.3 and Appendix B"},
+  {h:"The full training run used 2.788M H800 GPU hours, which is about $5.576M at $2 per GPU hour",p:"The figure covers pre-training, context extension, and post-training of the final model. The report states that the figure leaves out earlier research and ablation runs.",ev:"Self-reported",c:"std",w:"Table 1"},
+  {h:"Training was stable, with no unrecoverable loss spikes",p:"The report states the claim, but it doesn't publish loss curves for the full run.",ev:"Self-reported",c:"std",w:"§1"},
 ];
 $("#claims").innerHTML=CLAIMS.map(c=>`<div class="claim"><div><h4>${c.h}</h4><p>${c.p}</p></div><div class="right"><span class="pill ${c.c}">${c.ev}</span><span class="sec">${c.w}</span></div></div>`).join("");
 const QA=[
-  {q:"Why not just use an auxiliary balance loss?",a:"An auxiliary loss adds a gradient that pushes the router toward even loads even when that hurts prediction. A large enough coefficient to balance well degrades quality. The bias approach only changes which experts are selected and leaves the gating weights and the loss alone.",c:"§2.1.2"},
-  {q:"Is MLA new in this paper?",a:"No. Multi-head Latent Attention was introduced in DeepSeek-V2 and reused here unchanged in concept. UnpackAI marks it as inherited so it is not mistaken for a V3 contribution.",c:"§2.1.1"},
-  {q:"What would I need to reproduce the training loop?",a:"The architecture, optimiser settings and LR/batch schedule are fully specified. The main blockers are the undisclosed data mixture and filtering, and the systems work: FP8 kernels with tile scaling, and DualPipe with custom all-to-all kernels.",c:"§3 · §4.1–4.2"},
+  {q:"Why not use an auxiliary balancing loss?",a:"An auxiliary loss adds a gradient that moves the router toward even loads, even when even loads make the predictions worse. If the loss weight is large enough to balance the experts well, model quality drops. The bias method only changes which experts the router picks, and it doesn't change the output weights or the loss.",c:"§2.1.2"},
+  {q:"Is MLA new in this paper?",a:"No, Multi-head Latent Attention (MLA) was introduced in DeepSeek-V2, and DeepSeek-V3 uses the same design. UnpackAI marks MLA as inherited, so readers don't count it as a new idea in DeepSeek-V3.",c:"§2.1.1"},
+  {q:"What would I need to reproduce the training loop?",a:"The report fully describes the architecture, the optimizer settings, and the schedules for learning rate and batch size. The hardest parts to reproduce are the data, because the sources and filters are not disclosed, and the systems code. For example, you would need FP8 matrix multiplication kernels with tile scaling, and an implementation of DualPipe with custom kernels for sending tokens between machines.",c:"§3 and §4.1 to 4.2"},
 ];
 let qaIdx=0;
 function drawQA(){

@@ -1,47 +1,29 @@
 # UnpackAI
 
-Unpack new AI research (papers and lab blog posts) into what actually made it work:
-the architecture changes, the data curation recipe, and the training loop, each with
-interactive visuals.
+UnpackAI is a web app that explains new AI research papers and lab blog posts. For each paper, it shows the architecture changes, the data preparation, and the training process, and it marks which ideas are new in the paper and which ideas come from earlier work. Interactive figures show how the new ideas work.
 
 ## Prototype
 
-`index.html` is a self-contained clickable prototype. Open it in a browser; it needs no build step.
-It ships with one fully built "dossier" for the **DeepSeek-V3 Technical Report**
-(arXiv 2412.19437). The other library entries show how the feed would look.
+The file `index.html` is a clickable prototype, and you can open it in a browser without a build step. The prototype has one complete dossier, for the DeepSeek-V3 Technical Report (arXiv 2412.19437). The other library entries show how the list of papers would look.
 
-### Layout
+The page has three parts:
 
-- **Command bar**: paste an arXiv link, blog URL or PDF and press *Unpack*. The prototype
-  shows a mock of the extraction pipeline.
-- **Library** (left): followed sources, filters by area (Architecture / Data / Training / Systems),
-  and the processing status of each item.
-- **Dossier** (right): one paper, split into tabs:
-  - **Overview**: novelty map. Each idea is tagged *New in this paper*, *Inherited*, or *Standard*,
-    with what it replaces, why it works, and the paper section it comes from.
-  - **Architecture**: a model map diffed against a plain Transformer, plus three interactive visuals:
-    - Router playground: a live simulation of auxiliary-loss-free MoE load balancing.
-    - KV-cache calculator comparing MHA, GQA and MLA across context lengths.
-    - Multi-token prediction stepper.
-  - **Data**: a disclosure scorecard (what the paper reveals vs. withholds), a fill-in-the-middle
-    transform demo, and a document-packing visual.
-  - **Training loop**: a scrubbable LR / batch-size schedule over 14.8T tokens, the post-training
-    stages, a single-step loop walkthrough, and an FP8 per-tensor vs. per-tile quantisation heatmap.
-  - **Evidence**: claims tagged by evidence type (ablated, smaller-scale check, self-reported),
-    what the paper does not tell you, and a mock "ask the paper" panel with cited answers.
+- The command bar at the top takes an arXiv link, a blog URL, or a PDF. In the prototype, the Unpack button shows a mock of the processing steps.
+- The library on the left lists the papers and posts from the sources you follow. You can filter the library by area, e.g., architecture or data, and each entry shows whether it has been unpacked.
+- The dossier on the right explains one paper. It has five tabs:
+  - Overview has a table of the paper's ideas, with what each idea replaces, why it works, and the paper section that describes it.
+  - Architecture and Training loop have interactive figures, e.g., a simulation of how the router balances work across experts, a KV cache calculator, a learning rate timeline, and an FP8 rounding heatmap.
+  - Data shows which parts of the data preparation the paper discloses, with examples of fill-in-the-middle and document packing.
+  - Evidence tags each claim by the kind of evidence behind it, e.g., an ablation or a figure the authors report without a separate check.
 
-Colour carries meaning throughout: a highlighter yellow for new ideas, blue for inherited ones, grey for standard parts.
+The colors have a fixed meaning on every page. Yellow marks an idea that is new in the paper, blue marks an idea from earlier work, and grey marks standard practice.
 
-## How the real app could work
+## How the full app could work
 
-1. **Ingest**: poll arXiv categories (cs.CL, cs.LG) and lab blog RSS feeds; accept pasted URLs/PDFs.
-2. **Parse**: extract sections, tables, figures and equations (e.g. from arXiv LaTeX source when available, else PDF).
-3. **Extract**: an LLM fills a structured schema per paper: `novelties[]` (status, replaces, mechanism, section),
-   `architecture` (block graph + diffs), `data` (pipeline stages + disclosure flags), `training`
-   (schedule, optimiser, stages), `claims[]` (evidence type, section).
-4. **Diff against prior work**: cross-reference earlier dossiers so inherited ideas are labelled as such.
-5. **Plain-writing pass**: every generated paragraph goes through the plain-writing rules
-   (the `/plain-writing` skill) before it is shown. See `CLAUDE.md`.
-6. **Pick visuals**: map extracted mechanisms to a library of parameterised visual templates
-   (MoE router, attention/KV cache, schedule timeline, data funnel, quantisation, token stepper, etc.).
-   Every number shown links back to the paper section it came from.
+The full app would process each new paper in a fixed order. First, it collects new items from arXiv categories (cs.CL and cs.LG) and from the RSS feeds of lab blogs, and it accepts URLs and PDFs that a user pastes in. Second, it extracts the sections, tables, figures, and equations, using the LaTeX source from arXiv when it is available and the PDF otherwise. Third, an LLM fills in a fixed set of fields for the paper, e.g., the list of new ideas, the model blocks, the data steps, the training schedule, and the claims with their evidence.
+
+Fourth, the app compares the paper with earlier dossiers, so it can mark reused ideas as inherited. Fifth, every generated paragraph goes through the plain-writing skill before the app shows it, and `CLAUDE.md` has the rule for the project. Sixth, the app picks interactive figure templates that match the extracted ideas, and it fills them with the numbers from the paper. Each number links to the paper section it comes from.
+
+## Plain-writing skill
+
+The plain-writing skill in `.claude/skills/plain-writing/` is copied from [docwriter-org/plain-writing-skill](https://github.com/docwriter-org/plain-writing-skill) at commit `f0d3630`. It is under the MIT license, and the license file is in the same folder.

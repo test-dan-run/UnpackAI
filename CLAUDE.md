@@ -1,13 +1,11 @@
-# UnpackAI: working rules
+# Working rules for UnpackAI
 
 ## Plain writing for every paragraph
 
-Every paragraph of prose must go through the `/plain-writing` skill before it is committed or shown.
-This covers:
+Every paragraph of prose in the project must go through the `/plain-writing` skill before you commit it or show it. The skill is in `.claude/skills/plain-writing/SKILL.md`. The rule covers the following text:
 
-- UI copy and explanations in `index.html` (dossier text, "What to notice" notes, claims, answers).
-- Documentation such as `README.md`.
-- Paragraphs the app itself generates when it unpacks a paper.
+- The text and explanations in `index.html`, e.g., dossier text, "What to notice" notes, claims, and answers
+- Documentation, e.g., `README.md`
+- Paragraphs that the app generates when it unpacks a paper
 
-If the `/plain-writing` skill is not available in the session, say so to the user and stop.
-Do not swap in your own rewrite and present it as having gone through the skill.
+If the skill doesn't load in a session, tell the user and stop. Don't rewrite the text in your own style and say that it went through the skill.
