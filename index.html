@@ -1,0 +1,1034 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>UnpackAI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Schibsted+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a sticky command bar over a two-pane reader. The paper library sits on the left, a tabbed "dossier" on the right.
+   Novelty is marked the way a reader marks a paper: with a highlighter. Inherited ideas are blue, standard parts grey. */
+:root{
+  --paper:#F1F4F1; --panel:#FFFFFF; --ink:#15201B; --muted:#56655E; --rule:#D3DCD7; --rule-strong:#A9B7B0;
+  --blue:#2446C8; --blue-soft:#E2E8FA;
+  --hl:#E4EE55; --hl-ink:#232800;
+  --inh:#CFDCF5; --inh-ink:#1D3161;
+  --std:#E5EAE7; --std-ink:#44514B;
+  --warn:#B9531A; --ok:#2C7A4C;
+  --f-display:"Newsreader", Georgia, "Times New Roman", serif;
+  --f-ui:"Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0E1311; --panel:#151C19; --ink:#E3E9E5; --muted:#93A199; --rule:#25302B; --rule-strong:#3B4842;
+    --blue:#93A9FF; --blue-soft:#1C2545;
+    --hl:#D6E146; --hl-ink:#1A1E00;
+    --inh:#22355B; --inh-ink:#C8D7F7;
+    --std:#1F2824; --std-ink:#B4C0BA;
+    --warn:#F0995A; --ok:#6CC890;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E1311; --panel:#151C19; --ink:#E3E9E5; --muted:#93A199; --rule:#25302B; --rule-strong:#3B4842;
+  --blue:#93A9FF; --blue-soft:#1C2545;
+  --hl:#D6E146; --hl-ink:#1A1E00;
+  --inh:#22355B; --inh-ink:#C8D7F7;
+  --std:#1F2824; --std-ink:#B4C0BA;
+  --warn:#F0995A; --ok:#6CC890;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 var(--f-ui)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--panel)}
+button,input,select{font:inherit;color:inherit}
+a{color:var(--blue)}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+h1,h2,h3{text-wrap:balance;margin:0}
+p{margin:0}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.mark{background:linear-gradient(transparent 14%,var(--hl) 14%,var(--hl) 86%,transparent 86%);color:var(--hl-ink);padding:0 .18em;border-radius:2px}
+
+/* ---------- top bar ---------- */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--panel);border-bottom:1px solid var(--rule)}
+.topbar-inner{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding-block:10px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand{display:flex;align-items:baseline;gap:8px;font-weight:700;font-size:18px;letter-spacing:-.01em;white-space:nowrap}
+.brand-glyph{display:inline-block;width:22px;height:22px;align-self:center}
+.brand small{font-weight:500;font-size:12px;color:var(--muted);letter-spacing:0}
+.unpack-form{flex:1 1 380px;display:flex;gap:8px;min-width:0}
+.unpack-form input{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--rule-strong);border-radius:var(--r);background:var(--paper)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--r);border:1px solid var(--rule-strong);background:var(--panel);cursor:pointer;font-weight:600;font-size:14px;white-space:nowrap}
+.btn:hover{border-color:var(--blue)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:var(--panel)}
+.btn.small{padding:5px 10px;font-size:13px}
+.btn[aria-pressed="true"]{background:var(--blue-soft);border-color:var(--blue);color:var(--ink)}
+.proto-note{font-size:12.5px;color:var(--muted)}
+
+.pipeline{border-top:1px solid var(--rule);background:var(--paper);padding-block:10px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.pipeline ol{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px}
+.pipeline li{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.pipeline li::before{content:"";width:9px;height:9px;border-radius:50%;border:1.5px solid var(--rule-strong)}
+.pipeline li.run{color:var(--ink)}
+.pipeline li.run::before{border-color:var(--blue);background:var(--blue-soft)}
+.pipeline li.done{color:var(--ink)}
+.pipeline li.done::before{background:var(--ok);border-color:var(--ok)}
+.pipeline .result{margin-top:8px;font-size:13px}
+
+/* ---------- app grid ---------- */
+.app{display:grid;grid-template-columns:300px minmax(0,1fr);max-width:1440px;margin:0 auto}
+.library{border-right:1px solid var(--rule);padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:16px;
+  position:sticky;top:calc(env(safe-area-inset-top,0px) + 58px);align-self:start;max-height:calc(100vh - 58px);overflow:auto}
+.lib-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.lib-head h2{font-size:15px}
+.lib-search{width:100%;padding:7px 10px;border:1px solid var(--rule);border-radius:var(--r);background:var(--panel);font-size:13.5px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
+.chip{border:1px solid var(--rule);background:transparent;border-radius:999px;padding:3px 10px;font-size:12.5px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.lib-list{display:flex;flex-direction:column;gap:2px;list-style:none;margin:0;padding:0}
+.lib-item{display:block;width:100%;text-align:left;border:0;background:transparent;border-radius:var(--r);padding:10px;cursor:pointer}
+.lib-item:hover{background:var(--panel)}
+.lib-item[aria-current="true"]{background:var(--panel);box-shadow:inset 3px 0 0 var(--blue)}
+.lib-meta{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--muted)}
+.lib-title{font-family:var(--f-display);font-size:16px;line-height:1.25;margin:3px 0 6px}
+.tags{display:flex;flex-wrap:wrap;gap:4px}
+.tag{font-size:11px;padding:1px 7px;border-radius:3px;background:var(--std);color:var(--std-ink)}
+.status{font-size:11px;font-weight:600}
+.status.ready{color:var(--ok)}
+.status.queued{color:var(--muted)}
+.feeds{margin-top:18px;padding-top:14px;border-top:1px solid var(--rule);font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+.feeds b{color:var(--ink);font-weight:600}
+
+/* ---------- dossier ---------- */
+.dossier{min-width:0;padding-block:24px 64px;padding-left:28px;padding-right:max(16px,env(safe-area-inset-right,0px))}
+.paper-head{display:grid;gap:10px;max-width:980px}
+.paper-head h1{font-family:var(--f-display);font-weight:600;font-size:clamp(28px,3.4vw,40px);line-height:1.1;letter-spacing:-.01em}
+.thesis{font-size:17px;line-height:1.5;max-width:68ch}
+.specs{display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--rule);border-radius:var(--r);background:var(--panel);margin-top:6px;width:fit-content;max-width:100%}
+.spec{padding:8px 14px;border-right:1px solid var(--rule)}
+.spec:last-child{border-right:0}
+.spec b{display:block;font-family:var(--f-mono);font-size:16px;font-weight:600}
+.spec span{font-size:11.5px;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted);margin-top:4px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:10px;border-radius:2px;display:inline-block}
+.sw.novel{background:var(--hl)}
+.sw.inh{background:var(--inh)}
+.sw.std{background:var(--std);border:1px solid var(--rule-strong)}
+
+.tabs{display:flex;gap:2px;margin:26px 0 22px;border-bottom:1px solid var(--rule);overflow-x:auto;scrollbar-width:none}
+.tab{border:0;background:none;padding:10px 14px;font-weight:600;font-size:14.5px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;text-decoration:none}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.tab .count{font-family:var(--f-mono);font-size:11px;margin-left:5px;padding:1px 5px;border-radius:3px;background:var(--hl);color:var(--hl-ink)}
+
+.panel{display:grid;gap:22px;max-width:1080px}
+.section-title{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.section-title h2{font-size:20px;letter-spacing:-.01em}
+.lede{max-width:70ch;color:var(--ink)}
+.lede + .lede{margin-top:8px}
+
+/* novelty map table */
+.table-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:var(--r);background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:11px 14px;border-bottom:1px solid var(--rule)}
+tr:last-child td{border-bottom:0}
+th{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--paper)}
+td.what{font-weight:600;min-width:200px}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:3px;white-space:nowrap}
+.pill.novel{background:var(--hl);color:var(--hl-ink)}
+.pill.inh{background:var(--inh);color:var(--inh-ink)}
+.pill.std{background:var(--std);color:var(--std-ink)}
+.pill.ok{background:color-mix(in oklab,var(--ok) 18%,transparent);color:var(--ok)}
+.pill.warn{background:color-mix(in oklab,var(--warn) 16%,transparent);color:var(--warn)}
+.sec{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);white-space:nowrap}
+
+/* interactive figure */
+.viz{background:var(--panel);border:1px solid var(--rule);border-radius:var(--r);display:grid}
+.viz-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:16px 18px 0}
+.viz-head h3{font-size:17px;margin-top:2px}
+.viz-body{padding:14px 18px 18px;display:grid;gap:14px;min-width:0}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.seg{display:inline-flex;border:1px solid var(--rule-strong);border-radius:var(--r);overflow:hidden}
+.seg button{border:0;background:transparent;padding:6px 11px;font-size:13px;cursor:pointer;font-weight:600;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--rule-strong)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.notice{border-top:1px dashed var(--rule-strong);padding-top:10px;font-size:13.5px;color:var(--muted);max-width:80ch}
+.notice b{color:var(--ink)}
+.stats{display:flex;flex-wrap:wrap;gap:22px}
+.stat b{display:block;font-family:var(--f-mono);font-size:20px;font-variant-numeric:tabular-nums;font-weight:600}
+.stat span{font-size:12px;color:var(--muted)}
+.svg-wrap{overflow-x:auto}
+svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
+.two-col{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px}
+
+/* architecture diagram */
+.arch{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr) minmax(0,1.1fr);gap:16px;align-items:start}
+.stack{display:flex;flex-direction:column;gap:6px}
+.stack-label{font-size:11.5px;color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
+.repeat{border:1.5px dashed var(--rule-strong);border-radius:var(--r);padding:8px;display:flex;flex-direction:column;gap:6px;position:relative}
+.repeat-tag{position:absolute;right:8px;top:-10px;background:var(--panel);padding:0 6px;font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.blk{border:1px solid transparent;border-radius:5px;padding:8px 10px;text-align:left;cursor:pointer;font-size:13.5px;font-weight:600;display:flex;justify-content:space-between;gap:8px;align-items:center;width:100%}
+.blk small{font-weight:400;font-size:11.5px;opacity:.85}
+.blk.novel{background:var(--hl);color:var(--hl-ink)}
+.blk.inh{background:var(--inh);color:var(--inh-ink)}
+.blk.std{background:var(--std);color:var(--std-ink)}
+.blk[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.flat .blk.novel,.flat .blk.inh{background:var(--std);color:var(--std-ink)}
+.moe-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.arrow{text-align:center;color:var(--muted);font-size:12px;line-height:1}
+.detail{border-left:1px solid var(--rule);padding-left:16px;display:grid;gap:8px;align-content:start;min-width:0}
+.detail h4{margin:0;font-size:16px}
+.detail p{font-size:14px}
+.detail .kv{font-family:var(--f-mono);font-size:12.5px;color:var(--muted)}
+
+/* tokens */
+.tokens{display:flex;flex-wrap:wrap;gap:6px}
+.tok{font-family:var(--f-mono);font-size:13px;padding:5px 9px;border-radius:4px;border:1px solid var(--rule);color:var(--muted);position:relative}
+.tok.seen{background:var(--std);color:var(--ink);border-color:transparent}
+.tok.t1{background:var(--inh);color:var(--inh-ink);border-color:transparent}
+.tok.t2{background:var(--hl);color:var(--hl-ink);border-color:transparent}
+.tok-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted)}
+
+/* code / fim */
+.code{font-family:var(--f-mono);font-size:12.5px;line-height:1.6;background:var(--paper);border:1px solid var(--rule);border-radius:var(--r);padding:12px;white-space:pre;overflow-x:auto;margin:0}
+.seg-p{background:var(--std);color:var(--std-ink)}
+.seg-m{background:var(--hl);color:var(--hl-ink)}
+.seg-s{background:var(--inh);color:var(--inh-ink)}
+.special{color:var(--blue);font-weight:600}
+.dots{display:grid;grid-template-columns:repeat(40,1fr);gap:2px;max-width:520px}
+.dot{aspect-ratio:1;border-radius:1px;background:var(--std)}
+.dot.on{background:var(--hl);outline:1px solid color-mix(in oklab,var(--hl-ink) 30%,transparent)}
+
+.packs{display:flex;flex-direction:column;gap:6px}
+.pack-row{display:flex;align-items:center;gap:10px}
+.pack-row .mono{font-size:11.5px;color:var(--muted);width:46px;flex:none}
+.pack{display:flex;height:22px;flex:1;border-radius:3px;overflow:hidden;min-width:0}
+.pack div{height:100%;border-right:2px solid var(--panel)}
+.pack div:last-child{border-right:0}
+
+.disclose{display:grid;gap:0;border:1px solid var(--rule);border-radius:var(--r);background:var(--panel)}
+.disclose-row{display:grid;grid-template-columns:170px 110px minmax(0,1fr);gap:12px;padding:10px 14px;border-bottom:1px solid var(--rule);align-items:baseline;font-size:14px}
+.disclose-row:last-child{border-bottom:0}
+.disclose-row b{font-weight:600}
+
+/* training */
+.phases{display:flex;gap:4px;flex-wrap:wrap}
+.phase{flex:1 1 140px;text-align:left;border:1px solid var(--rule);background:var(--paper);border-radius:var(--r);padding:8px 10px;cursor:pointer;min-width:0}
+.phase b{display:block;font-size:13.5px}
+.phase span{font-size:12px;color:var(--muted)}
+.phase[aria-pressed="true"]{border-color:var(--ink);background:var(--panel)}
+.range{width:100%;accent-color:var(--blue)}
+.readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.readout div{background:var(--paper);border-radius:var(--r);padding:8px 10px}
+.readout b{display:block;font-family:var(--f-mono);font-size:16px;font-variant-numeric:tabular-nums}
+.readout span{font-size:11.5px;color:var(--muted)}
+
+.loop-svg .node circle{stroke:var(--rule-strong);stroke-width:1}
+.loop-svg .node.novel circle{fill:var(--hl)}
+.loop-svg .node.std circle{fill:var(--std)}
+.loop-svg .node.novel text{fill:var(--hl-ink)}
+.loop-svg .node.std text{fill:var(--std-ink)}
+.loop-svg .node text{font-family:var(--f-ui);font-size:12px;font-weight:600}
+.loop-svg .node.active circle{stroke:var(--ink);stroke-width:2.5}
+.loop-svg .node{cursor:pointer}
+
+.heat{display:grid;grid-template-columns:repeat(32,1fr);gap:1.5px}
+.heat div{aspect-ratio:1;border-radius:1px;position:relative}
+.heat div.zero::after{content:"";position:absolute;inset:30%;background:var(--ink);border-radius:50%}
+.heat-label{font-size:12.5px;font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between;gap:10px}
+.heat-scale{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted)}
+.heat-scale i{display:inline-block;width:120px;height:8px;border-radius:2px;background:linear-gradient(90deg,var(--std),var(--warn))}
+
+/* evidence */
+.claims{display:grid;gap:10px}
+.claim{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;background:var(--panel);border:1px solid var(--rule);border-radius:var(--r);padding:12px 14px}
+.claim p{font-size:14px;color:var(--muted)}
+.claim h4{margin:0;font-size:15px}
+.claim .right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.gaps{margin:0;padding-left:18px;display:grid;gap:6px;max-width:75ch}
+.qa{display:grid;gap:10px}
+.qs{display:flex;flex-wrap:wrap;gap:6px}
+.answer{background:var(--paper);border-radius:var(--r);padding:12px 14px;font-size:14.5px;max-width:78ch}
+.answer .cite{font-family:var(--f-mono);font-size:12px;color:var(--blue)}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:var(--r);font-size:13.5px;max-width:calc(100% - 32px);z-index:40}
+
+@media (max-width:1100px){
+  .arch{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .arch .detail{grid-column:1 / -1;border-left:0;border-top:1px solid var(--rule);padding-left:0;padding-top:14px}
+  .two-col,.split{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .library{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--rule);padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .lib-list{flex-direction:row;overflow-x:auto;gap:8px;padding-bottom:6px}
+  .lib-list li{flex:0 0 240px}
+  .lib-item{background:var(--panel);height:100%}
+  .feeds{display:none}
+  .dossier{padding-left:max(16px,env(safe-area-inset-left,0px))}
+}
+@media (max-width:620px){
+  .arch{grid-template-columns:minmax(0,1fr)}
+  .disclose-row{grid-template-columns:minmax(0,1fr) auto}
+  .disclose-row p{grid-column:1 / -1}
+  .claim{grid-template-columns:minmax(0,1fr)}
+  .claim .right{align-items:flex-start;flex-direction:row}
+  .spec{flex:1 1 33%;border-bottom:1px solid var(--rule)}
+  .dots{grid-template-columns:repeat(25,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg class="brand-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2 9h20" stroke="currentColor" stroke-width="1.8"/><rect x="6" y="12.5" width="9" height="3.5" rx="1" fill="var(--hl)"/></svg>
+      UnpackAI <small>research, opened up</small>
+    </div>
+    <form class="unpack-form" id="unpackForm" autocomplete="off">
+      <label for="unpackUrl" class="eyebrow" style="position:absolute;left:-9999px">Paper or blog URL</label>
+      <input id="unpackUrl" type="text" placeholder="Paste an arXiv link, lab blog post or PDF URL" value="https://arxiv.org/abs/2412.19437">
+      <button class="btn primary" type="submit">Unpack</button>
+    </form>
+    <span class="proto-note">Prototype · sample data</span>
+  </div>
+  <div class="pipeline" id="pipeline" hidden>
+    <ol id="pipelineSteps"></ol>
+    <p class="result" id="pipelineResult" hidden></p>
+  </div>
+</header>
+
+<div class="app">
+  <aside class="library" aria-label="Library">
+    <div class="lib-head"><h2>Library</h2><span class="eyebrow" id="libCount"></span></div>
+    <input class="lib-search" id="libSearch" type="search" placeholder="Search papers and posts">
+    <div class="chips" id="libChips" role="group" aria-label="Filter by area"></div>
+    <ul class="lib-list" id="libList"></ul>
+    <div class="feeds">
+      <span class="eyebrow">Sources you follow</span>
+      <span><b>arXiv</b> cs.CL, cs.LG, cs.AI</span>
+      <span><b>Lab blogs</b> 9 research blogs, checked hourly</span>
+      <span><b>Queue</b> new items are unpacked as they arrive</span>
+    </div>
+  </aside>
+
+  <main class="dossier" id="dossier">
+    <div class="paper-head">
+      <div class="eyebrow">Technical report · <a href="https://arxiv.org/abs/2412.19437" target="_blank" rel="noopener">arXiv 2412.19437</a> · Dec 2024 · DeepSeek-AI</div>
+      <h1>DeepSeek-V3 Technical Report</h1>
+      <p class="thesis">A 671B-parameter mixture-of-experts model trained for 2.788M H800 GPU hours. The work rests on four moves: <span class="mark">balancing experts without a loss penalty</span>, <span class="mark">predicting two tokens ahead</span>, <span class="mark">training in FP8</span>, and overlapping communication with compute.</p>
+      <div class="specs">
+        <div class="spec"><b>671B</b><span>total params</span></div>
+        <div class="spec"><b>37B</b><span>active per token</span></div>
+        <div class="spec"><b>14.8T</b><span>pre-training tokens</span></div>
+        <div class="spec"><b>61</b><span>layers</span></div>
+        <div class="spec"><b>128K</b><span>context</span></div>
+        <div class="spec"><b>2.788M</b><span>H800 GPU-hours</span></div>
+      </div>
+      <div class="legend">
+        <span><i class="sw novel"></i>New in this paper</span>
+        <span><i class="sw inh"></i>Inherited from earlier work</span>
+        <span><i class="sw std"></i>Standard practice</span>
+      </div>
+    </div>
+
+    <nav class="tabs" role="tablist" aria-label="Dossier sections" id="tabs">
+      <a class="tab" role="tab" href="#overview" data-tab="overview">Overview <span class="count">6</span></a>
+      <a class="tab" role="tab" href="#architecture" data-tab="architecture">Architecture</a>
+      <a class="tab" role="tab" href="#data" data-tab="data">Data</a>
+      <a class="tab" role="tab" href="#training" data-tab="training">Training loop</a>
+      <a class="tab" role="tab" href="#evidence" data-tab="evidence">Evidence</a>
+    </nav>
+
+    <!-- ================= OVERVIEW ================= -->
+    <section class="panel" data-panel="overview">
+      <div>
+        <div class="section-title"><h2>What made it work</h2><span class="eyebrow">Novelty map</span></div>
+        <p class="lede" style="margin-top:8px">UnpackAI separates what a paper actually introduces from what it reuses. Each row links to the interactive explanation and to the section of the paper where the claim is made.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Idea</th><th>Status</th><th>What it replaces</th><th>Why it works</th><th>Where</th></tr></thead>
+          <tbody id="noveltyRows"></tbody>
+        </table>
+      </div>
+
+      <div class="split">
+        <div class="viz">
+          <div class="viz-head"><div><div class="eyebrow">Where the novelty lives</div><h3>Contribution profile</h3></div></div>
+          <div class="viz-body">
+            <div class="svg-wrap"><svg id="profileSvg" viewBox="0 0 420 190" width="100%" role="img" aria-label="Count of ideas by area and status"></svg></div>
+            <p class="notice">This report is mostly an <b>architecture and systems</b> paper. Data gets one paragraph, so the Data tab flags what is left undisclosed.</p>
+          </div>
+        </div>
+        <div class="viz">
+          <div class="viz-head"><div><div class="eyebrow">Read it in this order</div><h3>Suggested path</h3></div></div>
+          <div class="viz-body">
+            <ol class="gaps" style="padding-left:20px">
+              <li><a href="#architecture">Router playground</a>: why MoE balance usually costs quality, and the bias trick that avoids it.</li>
+              <li><a href="#architecture">KV-cache calculator</a>: what MLA saves at long context.</li>
+              <li><a href="#training">Training timeline</a>: the learning-rate and batch-size plan across 14.8T tokens.</li>
+              <li><a href="#training">FP8 tile scaling</a>: why per-tile scales keep low-precision training stable.</li>
+              <li><a href="#evidence">Evidence</a>: which claims are ablated and which are self-reported.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= ARCHITECTURE ================= -->
+    <section class="panel" data-panel="architecture" hidden>
+      <div>
+        <div class="section-title"><h2>Architecture, diffed against a standard Transformer</h2></div>
+        <p class="lede" style="margin-top:8px">Select any block. Turn the highlight off to see the plain decoder this model starts from.</p>
+      </div>
+
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Interactive · model map</div><h3>One forward pass</h3></div>
+          <button class="btn small" id="flatToggle" aria-pressed="true">Highlight what changed</button>
+        </div>
+        <div class="viz-body">
+          <div class="arch" id="arch">
+            <div class="stack">
+              <div class="stack-label">Main model</div>
+              <button class="blk std" data-blk="emb">Token embedding <small>vocab 128K</small></button>
+              <div class="arrow">↓</div>
+              <div class="repeat">
+                <span class="repeat-tag">× 61</span>
+                <button class="blk std" data-blk="norm">RMSNorm</button>
+                <button class="blk inh" data-blk="mla">Multi-head Latent Attention <small>MLA</small></button>
+                <button class="blk std" data-blk="norm">RMSNorm</button>
+                <div class="moe-row">
+                  <button class="blk novel" data-blk="router">Router + bias</button>
+                  <button class="blk inh" data-blk="moe">DeepSeekMoE</button>
+                </div>
+              </div>
+              <div class="arrow">↓</div>
+              <button class="blk std" data-blk="head">Output head <small>predicts t+1</small></button>
+            </div>
+            <div class="stack">
+              <div class="stack-label">Training-only module</div>
+              <button class="blk novel" data-blk="mtp">MTP module <small>depth 1</small></button>
+              <div class="arrow">shares embedding + head</div>
+              <button class="blk std" data-blk="mtpblock">1 Transformer block</button>
+              <div class="arrow">↓</div>
+              <button class="blk novel" data-blk="mtphead">Head <small>predicts t+2</small></button>
+            </div>
+            <div class="detail" id="archDetail" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="viz" id="routerViz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Interactive · simulation</div><h3>Router playground: auxiliary-loss-free load balancing</h3></div>
+          <div class="controls">
+            <div class="seg" role="group" aria-label="Balancing strategy">
+              <button data-mode="none" aria-pressed="false">No balancing</button>
+              <button data-mode="bias" aria-pressed="true">Bias adjustment</button>
+            </div>
+            <button class="btn small primary" id="routerPlay">Play</button>
+            <button class="btn small" id="routerStep">Step</button>
+            <button class="btn small" id="routerReset">Reset</button>
+          </div>
+        </div>
+        <div class="viz-body">
+          <div class="stats">
+            <div class="stat"><b id="rStep">0</b><span>training steps</span></div>
+            <div class="stat"><b id="rImb">–</b><span>busiest expert ÷ average</span></div>
+            <div class="stat"><b id="rIdle">–</b><span>experts under half load</span></div>
+          </div>
+          <div class="svg-wrap"><svg id="routerSvg" viewBox="0 0 680 270" width="100%" role="img" aria-label="Tokens routed to each of 16 experts, with each expert's routing bias"></svg></div>
+          <div class="svg-wrap"><svg id="routerSpark" viewBox="0 0 680 70" width="100%" role="img" aria-label="Load imbalance over time"></svg></div>
+          <p class="notice"><b>What to notice.</b> Without balancing, a few popular experts take most tokens and the rest barely train. With bias adjustment, each expert gets a bias that is nudged down when it is overloaded and up when it is idle. The bias only changes <i>which</i> experts are picked. Gate weights still use the raw affinity, so no extra loss term pulls against language modelling. Scaled down here to 16 experts, top-2. V3 uses 256 routed experts plus 1 shared, top-8, and keeps a tiny sequence-level balance loss (α = 0.0001) as a safety net.</p>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="viz">
+          <div class="viz-head"><div><div class="eyebrow">Interactive · calculator</div><h3>KV cache at inference</h3></div></div>
+          <div class="viz-body">
+            <label for="kvCtx" class="eyebrow">Context length: <span class="mono" id="kvCtxLabel"></span></label>
+            <input class="range" type="range" id="kvCtx" min="0" max="5" step="1" value="5">
+            <div id="kvBars" style="display:grid;gap:10px"></div>
+            <p class="notice"><b>What to notice.</b> MLA caches one 512-dim latent plus a 64-dim RoPE key per token per layer (576 numbers) instead of full keys and values for 128 heads (32,768 numbers). The MHA and GQA rows are hypothetical: the same 61-layer model with standard attention. BF16, one sequence.</p>
+          </div>
+        </div>
+        <div class="viz">
+          <div class="viz-head">
+            <div><div class="eyebrow">Interactive · stepper</div><h3>Multi-token prediction</h3></div>
+            <div class="controls"><button class="btn small" id="mtpPrev" aria-label="Previous position">←</button><button class="btn small" id="mtpNext" aria-label="Next position">→</button></div>
+          </div>
+          <div class="viz-body">
+            <div class="tokens" id="mtpTokens"></div>
+            <div class="tok-legend"><span><i class="sw std"></i> context seen</span><span><i class="sw inh"></i> main head target (t+1)</span><span><i class="sw novel"></i> MTP target (t+2)</span></div>
+            <p class="mono" style="font-size:13px" id="mtpLoss"></p>
+            <p class="notice"><b>What to notice.</b> Every position now yields two training signals. The MTP module takes the main model's hidden state plus the embedding of the next token, so the causal chain is kept. At inference it can be dropped, or used for speculative decoding: the paper reports 85–90% acceptance of the second token.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= DATA ================= -->
+    <section class="panel" data-panel="data" hidden>
+      <div>
+        <div class="section-title"><h2>Data curation</h2><span class="pill warn">Thinly disclosed</span></div>
+        <p class="lede" style="margin-top:8px">UnpackAI scores how much of the data recipe a paper actually reveals. Here the report gives the totals and two concrete techniques, fill-in-the-middle and document packing, but not the source mix or filtering rules.</p>
+      </div>
+
+      <div class="disclose" id="discloseRows"></div>
+
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Interactive · data transform</div><h3>Fill-in-the-middle (FIM), Prefix-Suffix-Middle format</h3></div>
+          <div class="controls"><button class="btn small" id="fimResample">Pick a new split</button></div>
+        </div>
+        <div class="viz-body">
+          <div class="split">
+            <div><div class="eyebrow" style="margin-bottom:6px">Original document</div><pre class="code" id="fimOrig"></pre></div>
+            <div><div class="eyebrow" style="margin-bottom:6px">What the model is trained on</div><pre class="code" id="fimOut" style="white-space:pre-wrap;word-break:break-word"></pre></div>
+          </div>
+          <div class="tok-legend"><span><i class="sw std"></i> prefix</span><span><i class="sw inh"></i> suffix</span><span><i class="sw novel"></i> middle, moved to the end</span></div>
+          <div style="display:grid;gap:8px">
+            <div class="controls"><button class="btn small" id="fimSample">Sample 1,000 documents</button><span class="mono" style="font-size:13px" id="fimCount"></span></div>
+            <div class="dots" id="fimDots" aria-hidden="true"></div>
+          </div>
+          <p class="notice"><b>What to notice.</b> The middle span is moved to the end, so ordinary left-to-right training teaches the model to fill gaps given what comes after. It is applied to about 10% of documents, which keeps next-token ability intact. FIM is borrowed from DeepSeekCoder-V2, so it is marked as inherited.</p>
+        </div>
+      </div>
+
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Interactive · data layout</div><h3>Document packing into 4,096-token sequences</h3></div>
+          <div class="controls"><button class="btn small" id="packAgain">New stream</button></div>
+        </div>
+        <div class="viz-body">
+          <div class="packs" id="packs"></div>
+          <p class="notice"><b>What to notice.</b> Documents are concatenated and cut into fixed-length rows, so no compute is spent on padding. The report says it does <b>not</b> mask attention across document boundaries during pre-training: a token can attend to an unrelated document earlier in the same row.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= TRAINING ================= -->
+    <section class="panel" data-panel="training" hidden>
+      <div>
+        <div class="section-title"><h2>The training loop</h2></div>
+        <p class="lede" style="margin-top:8px">Scrub through pre-training to see the schedule. Then step through a single optimisation step to see which parts are new.</p>
+      </div>
+
+      <div class="viz">
+        <div class="viz-head"><div><div class="eyebrow">Interactive · timeline</div><h3>Pre-training schedule across 14.8T tokens</h3></div></div>
+        <div class="viz-body">
+          <div class="svg-wrap"><svg id="schedSvg" viewBox="0 0 720 270" width="100%" role="img" aria-label="Learning rate and batch size over training tokens"></svg></div>
+          <label class="eyebrow" for="schedRange">Tokens seen</label>
+          <input class="range" type="range" id="schedRange" min="0" max="14.8" step="0.01" value="6">
+          <div class="readout" id="schedReadout"></div>
+          <div class="phases" id="phases" role="group" aria-label="Training stages"></div>
+          <p class="notice" id="phaseNote"></p>
+        </div>
+      </div>
+
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Interactive · one step</div><h3>Inside a single optimisation step</h3></div>
+          <div class="controls"><button class="btn small primary" id="loopPlay">Play</button><button class="btn small" id="loopNext">Next stage</button></div>
+        </div>
+        <div class="viz-body">
+          <div class="two-col">
+            <svg class="loop-svg" id="loopSvg" viewBox="0 0 340 330" width="100%" style="max-width:420px" role="img" aria-label="Training step cycle"></svg>
+            <div class="detail" id="loopDetail" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Interactive · numerics</div><h3>FP8 with fine-grained scaling</h3></div>
+          <div class="controls">
+            <label for="fp8Outlier" class="eyebrow">Outlier size</label>
+            <input type="range" id="fp8Outlier" min="0" max="5" step="0.1" value="4" style="width:160px;accent-color:var(--blue)">
+            <span class="mono" id="fp8OutLabel" style="font-size:13px"></span>
+          </div>
+        </div>
+        <div class="viz-body">
+          <div class="split">
+            <div>
+              <div class="heat-label"><span>One scale for the whole tensor</span><span class="mono" id="fp8TensorStat"></span></div>
+              <div class="heat" id="heatTensor"></div>
+            </div>
+            <div>
+              <div class="heat-label"><span>One scale per tile (V3)</span><span class="mono" id="fp8TileStat"></span></div>
+              <div class="heat" id="heatTile"></div>
+            </div>
+          </div>
+          <div class="heat-scale"><span>relative error 0%</span><i></i><span>≥ 50%</span><span style="margin-left:10px">● = rounded to zero</span></div>
+          <p class="notice"><b>What to notice.</b> Each row is a tile of activations; one value in the top row is an outlier. FP8 (E4M3) tops out at 448, so a single scale sized for the outlier pushes every small value toward zero. Scaling each tile separately confines the damage to the outlier's own tile. V3 uses 1×128 tiles for activations and 128×128 blocks for weights, and accumulates in higher precision. Rows of 32 are shown here for space.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= EVIDENCE ================= -->
+    <section class="panel" data-panel="evidence" hidden>
+      <div>
+        <div class="section-title"><h2>Claims and how well they are supported</h2></div>
+        <p class="lede" style="margin-top:8px">Each claim is tagged by the kind of evidence behind it. An ablation isolates the idea; a self-reported figure has to be taken on trust.</p>
+      </div>
+      <div class="claims" id="claims"></div>
+
+      <div class="split">
+        <div class="viz">
+          <div class="viz-head"><div><div class="eyebrow">Gaps</div><h3>What the paper does not tell you</h3></div></div>
+          <div class="viz-body">
+            <ul class="gaps">
+              <li>The pre-training data sources and their mixture weights.</li>
+              <li>Quality filters, dedup thresholds, and decontamination rules.</li>
+              <li>Total compute including research and ablation runs. The 2.788M GPU-hour figure covers the final run only.</li>
+              <li>Full reward model and prompt sets used in RL.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="viz">
+          <div class="viz-head"><div><div class="eyebrow">Ask the paper · mockup</div><h3>Questions with cited answers</h3></div></div>
+          <div class="viz-body qa">
+            <div class="qs" id="qs"></div>
+            <div class="answer" id="answer" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const NS = "http://www.w3.org/2000/svg";
+const svgEl = (tag, attrs = {}, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+const fmt = n => n.toLocaleString("en-US");
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function gauss(r){let u=0,v=0;while(!u)u=r();while(!v)v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let toastTimer;
+function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.hidden=true,3800)}
+
+/* ---------------- library ---------------- */
+const LIB = [
+  {id:"dsv3", title:"DeepSeek-V3 Technical Report", org:"DeepSeek-AI", date:"Dec 2024", kind:"Paper", tags:["Architecture","Training","Systems"], ready:true},
+  {id:"fineweb", title:"The FineWeb Datasets", org:"Hugging Face", date:"Jun 2024", kind:"Paper", tags:["Data"], ready:true},
+  {id:"r1", title:"DeepSeek-R1: Incentivizing Reasoning via RL", org:"DeepSeek-AI", date:"Jan 2025", kind:"Paper", tags:["Training"], ready:true},
+  {id:"mamba", title:"Mamba: Linear-Time Sequence Modeling with Selective State Spaces", org:"CMU · Princeton", date:"Dec 2023", kind:"Paper", tags:["Architecture"], ready:true},
+  {id:"blt", title:"Byte Latent Transformer", org:"Meta FAIR", date:"Dec 2024", kind:"Paper", tags:["Architecture"], ready:true},
+  {id:"dclm", title:"DataComp-LM", org:"DCLM team", date:"Jun 2024", kind:"Paper", tags:["Data"], ready:true},
+  {id:"muon", title:"Muon is Scalable for LLM Training", org:"Moonshot AI", date:"Feb 2025", kind:"Paper", tags:["Training"], ready:false},
+];
+const AREAS = ["All","Architecture","Data","Training","Systems"];
+let libFilter = "All";
+function renderChips(){
+  const c=$("#libChips"); c.innerHTML="";
+  AREAS.forEach(a=>{const b=document.createElement("button");b.className="chip";b.textContent=a;b.setAttribute("aria-pressed",a===libFilter);b.onclick=()=>{libFilter=a;renderChips();renderLib()};c.appendChild(b)});
+}
+function renderLib(){
+  const q=$("#libSearch").value.trim().toLowerCase(), ul=$("#libList"); ul.innerHTML="";
+  const items=LIB.filter(p=>(libFilter==="All"||p.tags.includes(libFilter))&&(!q||(p.title+" "+p.org).toLowerCase().includes(q)));
+  $("#libCount").textContent=items.length+" items";
+  items.forEach(p=>{
+    const li=document.createElement("li"), b=document.createElement("button");
+    b.className="lib-item"; b.setAttribute("aria-current",p.id==="dsv3");
+    b.innerHTML=`<div class="lib-meta"><span>${p.org} · ${p.date}</span><span class="status ${p.ready?"ready":"queued"}">${p.ready?"Unpacked":"In queue"}</span></div>
+      <div class="lib-title">${p.title}</div><div class="tags">${p.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>`;
+    b.onclick=()=>{ if(p.id!=="dsv3") toast(`Only the DeepSeek-V3 dossier is built in this prototype. “${p.title}” would open here.`); };
+    li.appendChild(b); ul.appendChild(li);
+  });
+}
+$("#libSearch").addEventListener("input",renderLib);
+renderChips(); renderLib();
+
+/* ---------------- unpack pipeline mock ---------------- */
+const STAGES=["Fetch source","Parse sections & figures","Extract claims","Diff against prior work","Build visuals"];
+$("#unpackForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const pipe=$("#pipeline"), ol=$("#pipelineSteps"), res=$("#pipelineResult");
+  pipe.hidden=false; res.hidden=true; ol.innerHTML=STAGES.map(s=>`<li>${s}</li>`).join("");
+  const lis=$$("li",ol); let i=0;
+  const tick=()=>{ if(i>0) lis[i-1].className="done"; if(i<lis.length){lis[i].className="run";i++;setTimeout(tick,reduceMotion?50:520);} else {res.hidden=false;res.textContent="Prototype: this would run the extraction service. Showing the sample DeepSeek-V3 dossier.";} };
+  tick();
+});
+
+/* ---------------- tabs ---------------- */
+const TABS=["overview","architecture","data","training","evidence"];
+function showTab(){
+  let h=location.hash.replace("#",""); if(!TABS.includes(h)) h="overview";
+  $$(".tab").forEach(t=>t.setAttribute("aria-selected",t.dataset.tab===h));
+  $$("[data-panel]").forEach(p=>p.hidden=p.dataset.panel!==h);
+}
+window.addEventListener("hashchange",()=>{showTab(); const tabs=$("#tabs"); if(tabs.getBoundingClientRect().top<0) tabs.scrollIntoView({block:"start"});});
+showTab();
+
+/* ---------------- overview ---------------- */
+const NOVEL=[
+  {what:"Auxiliary-loss-free load balancing", status:"novel", area:"Architecture", replaces:"An auxiliary balance loss that competes with the language-modelling loss", why:"A per-expert bias steers expert selection only. Gate weights stay untouched, so balance costs no quality.", where:"§2.1.2", link:"#architecture"},
+  {what:"Multi-token prediction (depth 1)", status:"novel", area:"Objective", replaces:"Next-token loss alone", why:"Two targets per position give a denser training signal, and the extra module enables speculative decoding.", where:"§2.2", link:"#architecture"},
+  {what:"FP8 mixed-precision training at scale", status:"novel", area:"Systems", replaces:"BF16 training", why:"Tile- and block-wise scaling isolates outliers; higher-precision accumulation keeps sums accurate.", where:"§3.3", link:"#training"},
+  {what:"DualPipe pipeline parallelism", status:"novel", area:"Systems", replaces:"1F1B-style pipeline schedules", why:"Overlaps expert all-to-all communication with computation, so cross-node MoE stays efficient.", where:"§3.2.1", link:"#training"},
+  {what:"Multi-head Latent Attention", status:"inh", area:"Architecture", replaces:"Standard multi-head attention", why:"Compresses keys and values into a small latent, shrinking the KV cache. Introduced in DeepSeek-V2.", where:"§2.1.1", link:"#architecture"},
+  {what:"Reasoning distilled from R1-series models", status:"novel", area:"Post-training", replaces:"SFT on human-written answers only", why:"Long chain-of-thought data from a reasoning model is filtered and used for SFT, then refined with GRPO.", where:"§5.1–5.2", link:"#training"},
+];
+const label={novel:"New",inh:"Inherited",std:"Standard"};
+$("#noveltyRows").innerHTML=NOVEL.map(n=>`<tr><td class="what"><a href="${n.link}">${n.what}</a></td><td><span class="pill ${n.status}">${label[n.status]}</span></td><td>${n.replaces}</td><td>${n.why}</td><td class="sec">${n.where}</td></tr>`).join("");
+
+(function profile(){
+  const svg=$("#profileSvg"), rows=[["Architecture",1,2],["Objective",1,0],["Systems",2,0],["Data",0,1],["Post-training",1,0]];
+  const x0=110, unit=60, h=22;
+  rows.forEach((r,i)=>{
+    const y=14+i*34;
+    svg.appendChild(svgEl("text",{x:0,y:y+15,style:"font-family:var(--f-ui);font-size:12.5px;fill:var(--ink)"},r[0]));
+    svg.appendChild(svgEl("rect",{x:x0,y,width:5*unit,height:h,rx:3,fill:"var(--paper)"}));
+    let x=x0;
+    if(r[1]){svg.appendChild(svgEl("rect",{x,y,width:r[1]*unit-2,height:h,rx:3,fill:"var(--hl)"}));x+=r[1]*unit;}
+    if(r[2]){svg.appendChild(svgEl("rect",{x,y,width:r[2]*unit-2,height:h,rx:3,fill:"var(--inh)"}));x+=r[2]*unit;}
+    svg.appendChild(svgEl("text",{x:x+6,y:y+15},(r[1]+r[2])===0?"none":`${r[1]} new${r[2]?` · ${r[2]} inherited`:""}`));
+  });
+})();
+
+/* ---------------- architecture map ---------------- */
+const BLK={
+  emb:{t:"Token embedding",s:"std",p:"Byte-level BPE tokenizer with a 128K vocabulary. Hidden size 7,168.",kv:"standard"},
+  norm:{t:"RMSNorm",s:"std",p:"Pre-normalisation before attention and the feed-forward layer, as in most modern decoders.",kv:"standard"},
+  mla:{t:"Multi-head Latent Attention",s:"inh",p:"Keys and values are projected down to a 512-dim latent that is cached, then projected back up per head. A separate 64-dim key carries rotary position. This cuts KV-cache memory sharply (see the calculator below).",kv:"128 heads · head dim 128 · KV latent 512 · from DeepSeek-V2"},
+  router:{t:"Router with balancing bias",s:"novel",p:"Each token scores every expert with a sigmoid affinity. A per-expert bias is added only when choosing the top-8. After each step, the bias of overloaded experts goes down and of underloaded experts goes up. No gradient flows through it.",kv:"bias update speed γ = 0.001 · new in V3"},
+  moe:{t:"DeepSeekMoE",s:"inh",p:"One always-on shared expert plus 256 fine-grained routed experts, of which 8 fire per token. Each token is sent to at most 4 nodes, which caps cross-node traffic. The first 3 layers use a dense FFN instead.",kv:"1 shared + 256 routed · top-8 · expert dim 2,048"},
+  head:{t:"Output head",s:"std",p:"Projects the final hidden state to vocabulary logits for the next token.",kv:"standard"},
+  mtp:{t:"Multi-token prediction module",s:"novel",p:"Takes the main model's hidden state at position i and the embedding of token i+1, normalises and concatenates them, then projects back to model width. Trained jointly; can be discarded at inference.",kv:"depth D = 1 · loss weight λ = 0.3 → 0.1"},
+  mtpblock:{t:"MTP Transformer block",s:"std",p:"A single ordinary Transformer block, sequential after the main model, so each prediction keeps its full causal chain.",kv:"standard block"},
+  mtphead:{t:"MTP output head",s:"novel",p:"Shares weights with the main output head and predicts token i+2. Its cross-entropy loss is averaged and added to the main loss.",kv:"shared embedding and head"},
+};
+function showBlk(id){
+  const b=BLK[id];
+  $$("#arch .blk").forEach(x=>x.setAttribute("aria-pressed",x.dataset.blk===id));
+  $("#archDetail").innerHTML=`<span class="pill ${b.s}">${label[b.s]}</span><h4>${b.t}</h4><p>${b.p}</p><p class="kv">${b.kv}</p>`;
+}
+$$("#arch .blk").forEach(b=>b.addEventListener("click",()=>showBlk(b.dataset.blk)));
+showBlk("router");
+$("#flatToggle").addEventListener("click",e=>{const on=e.currentTarget.getAttribute("aria-pressed")!=="true";e.currentTarget.setAttribute("aria-pressed",on);$("#arch").classList.toggle("flat",!on);});
+
+/* ---------------- router simulation ---------------- */
+const R={E:16,K:2,T:512,gamma:0.03,mode:"bias",step:0,bias:[],loads:[],hist:[],skew:[],rng:null,timer:null};
+R.MEAN=R.T*R.K/R.E;
+function routerReset(){
+  R.rng=mulberry32(11); R.step=0; R.hist=[]; R.bias=new Array(R.E).fill(0); R.loads=new Array(R.E).fill(0);
+  const base=Array.from({length:R.E},(_,i)=>1.7*Math.exp(-i/3.2)-0.4+(R.rng()-0.5)*0.3);
+  for(let i=base.length-1;i>0;i--){const j=Math.floor(R.rng()*(i+1));[base[i],base[j]]=[base[j],base[i]];}
+  R.skew=base; routerStep();
+}
+function routerStep(){
+  const {E,K,T}=R, loads=new Array(E).fill(0), r=R.rng;
+  for(let t=0;t<T;t++){
+    let b1=-1,b2=-1,s1=-1e9,s2=-1e9;
+    for(let i=0;i<E;i++){
+      const a=1/(1+Math.exp(-(R.skew[i]+0.8*gauss(r))));
+      const s=a+(R.mode==="bias"?R.bias[i]:0);
+      if(s>s1){s2=s1;b2=b1;s1=s;b1=i}else if(s>s2){s2=s;b2=i}
+    }
+    loads[b1]++; if(K>1) loads[b2]++;
+  }
+  if(R.mode==="bias") for(let i=0;i<E;i++) R.bias[i]+=R.gamma*Math.sign(R.MEAN-loads[i]);
+  R.loads=loads; R.step++; R.hist.push(Math.max(...loads)/R.MEAN); if(R.hist.length>160) R.hist.shift();
+  drawRouter();
+}
+function drawRouter(){
+  const svg=$("#routerSvg"); svg.innerHTML="";
+  const {E,MEAN}=R, x0=46, W=620, bw=W/E, top=30, base=180, ymax=MEAN*4, sc=v=>base-(Math.min(v,ymax)/ymax)*(base-top);
+  [0,MEAN,MEAN*2,MEAN*3,MEAN*4].forEach(v=>{svg.appendChild(svgEl("line",{x1:x0,x2:x0+W,y1:sc(v),y2:sc(v),stroke:"var(--rule)","stroke-width":1}));svg.appendChild(svgEl("text",{x:x0-6,y:sc(v)+4,"text-anchor":"end"},v))});
+  R.loads.forEach((l,i)=>{
+    const over=l>MEAN*1.5, x=x0+i*bw+3;
+    svg.appendChild(svgEl("rect",{x,y:sc(l),width:bw-6,height:base-sc(l),rx:2,fill:over?"var(--warn)":"var(--blue)",opacity:over?0.85:0.75}));
+    if(l>ymax) svg.appendChild(svgEl("text",{x:x+(bw-6)/2,y:top+10,"text-anchor":"middle",style:"fill:var(--ink)"},l));
+    svg.appendChild(svgEl("text",{x:x+(bw-6)/2,y:base+14,"text-anchor":"middle"},"E"+(i+1)));
+    const b=R.bias[i], mid=236, bh=Math.max(-24,Math.min(24,b*40));
+    svg.appendChild(svgEl("rect",{x:x+(bw-6)/2-5,y:bh>=0?mid-bh:mid,width:10,height:Math.abs(bh)||1,fill:"var(--ink)",opacity:R.mode==="bias"?0.6:0.15}));
+  });
+  svg.appendChild(svgEl("line",{x1:x0,x2:x0+W,y1:sc(MEAN),y2:sc(MEAN),stroke:"var(--ink)","stroke-dasharray":"4 3","stroke-width":1.2}));
+  svg.appendChild(svgEl("text",{x:x0+W,y:12,"text-anchor":"end",style:"fill:var(--ink)"},"- - -  even share = "+MEAN+" tokens per expert"));
+  svg.appendChild(svgEl("line",{x1:x0,x2:x0+W,y1:236,y2:236,stroke:"var(--rule-strong)"}));
+  svg.appendChild(svgEl("text",{x:x0-6,y:216,"text-anchor":"end"},"bias"));
+  svg.appendChild(svgEl("text",{x:x0-6,y:228,"text-anchor":"end"},"+"));
+  svg.appendChild(svgEl("text",{x:x0-6,y:254,"text-anchor":"end"},"−"));
+  // spark
+  const sp=$("#routerSpark"); sp.innerHTML="";
+  const sy=v=>60-((Math.min(v,4)-1)/3)*52;
+  sp.appendChild(svgEl("line",{x1:x0,x2:x0+W,y1:sy(1),y2:sy(1),stroke:"var(--rule-strong)","stroke-dasharray":"3 3"}));
+  sp.appendChild(svgEl("text",{x:x0-6,y:sy(1)+4,"text-anchor":"end"},"1×"));
+  sp.appendChild(svgEl("text",{x:x0-6,y:sy(4)+8,"text-anchor":"end"},"4×"));
+  if(R.hist.length>1){
+    const pts=R.hist.map((v,i)=>`${x0+i*(W/159)},${sy(v)}`).join(" ");
+    sp.appendChild(svgEl("polyline",{points:pts,fill:"none",stroke:"var(--blue)","stroke-width":1.8}));
+    const lv=R.hist[R.hist.length-1]; sp.appendChild(svgEl("circle",{cx:x0+(R.hist.length-1)*(W/159),cy:sy(lv),r:3.5,fill:"var(--blue)"}));
+  }
+  sp.appendChild(svgEl("text",{x:x0+W,y:10,"text-anchor":"end"},"imbalance over the last 160 steps"));
+  $("#rStep").textContent=R.step;
+  $("#rImb").textContent=(Math.max(...R.loads)/MEAN).toFixed(2)+"×";
+  $("#rIdle").textContent=R.loads.filter(l=>l<MEAN/2).length+" / "+E;
+}
+function routerPlay(on){
+  const btn=$("#routerPlay");
+  if(on===undefined) on=!R.timer;
+  clearInterval(R.timer); R.timer=null;
+  if(on){R.timer=setInterval(()=>{routerStep(); if(R.step>=400) routerPlay(false);},reduceMotion?250:90);}
+  btn.textContent=on?"Pause":"Play";
+}
+$$("#routerViz .seg button").forEach(b=>b.addEventListener("click",()=>{R.mode=b.dataset.mode;$$("#routerViz .seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));routerPlay(false);routerReset();}));
+$("#routerPlay").addEventListener("click",()=>routerPlay());
+$("#routerStep").addEventListener("click",()=>{routerPlay(false);routerStep();});
+$("#routerReset").addEventListener("click",()=>{routerPlay(false);routerReset();});
+routerReset();
+for(let i=0;i<5;i++) routerStep();
+
+/* ---------------- KV cache ---------------- */
+const CTX=[4096,8192,16384,32768,65536,131072], L=61, BYTES=2;
+const KV=[
+  {n:"MHA (hypothetical)",per:2*128*128,c:"var(--std-ink)",s:"std"},
+  {n:"GQA, 8 groups (hypothetical)",per:2*8*128,c:"var(--inh-ink)",s:"inh"},
+  {n:"MLA (as built)",per:512+64,c:"var(--hl-ink)",s:"novel"},
+];
+function gib(b){return b>=2**30?(b/2**30).toFixed(b>=100*2**30?0:1)+" GiB":(b/2**20).toFixed(0)+" MiB"}
+function drawKV(){
+  const ctx=CTX[+$("#kvCtx").value]; $("#kvCtxLabel").textContent=fmt(ctx)+" tokens";
+  const max=KV[0].per*L*BYTES*ctx;
+  $("#kvBars").innerHTML=KV.map(k=>{
+    const tot=k.per*L*BYTES*ctx, w=Math.max(0.6,tot/max*100);
+    const fill=k.s==="novel"?"var(--hl)":k.s==="inh"?"var(--inh)":"var(--rule-strong)";
+    return `<div><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span>${k.n}</span><span class="mono"><b>${gib(tot)}</b> · ${fmt(k.per)} values/token/layer</span></div>
+    <div style="height:14px;background:var(--paper);border-radius:3px;margin-top:4px"><div style="height:100%;width:${w}%;background:${fill};border-radius:3px"></div></div></div>`;
+  }).join("")+`<p class="mono" style="font-size:12.5px;color:var(--muted)">MLA cache is ${(KV[0].per/KV[2].per).toFixed(0)}× smaller than MHA at the same width.</p>`;
+}
+$("#kvCtx").addEventListener("input",drawKV); drawKV();
+
+/* ---------------- MTP stepper ---------------- */
+const SENT=["The","router","sends","each","token","to","eight","of","256","experts","."];
+let mtpPos=3;
+function drawMTP(){
+  $("#mtpTokens").innerHTML=SENT.map((w,i)=>{let c=i<=mtpPos?"seen":i===mtpPos+1?"t1":i===mtpPos+2?"t2":"";return `<span class="tok ${c}">${w}</span>`}).join("");
+  const a=SENT[mtpPos+1], b=SENT[mtpPos+2];
+  $("#mtpLoss").innerHTML=`position ${mtpPos+1}: L = CE(“${a}”) + λ · CE(“${b}”) &nbsp; λ = 0.3 for the first 10T tokens, 0.1 after`;
+  $("#mtpPrev").disabled=mtpPos<=0; $("#mtpNext").disabled=mtpPos>=SENT.length-3;
+}
+$("#mtpPrev").onclick=()=>{mtpPos=Math.max(0,mtpPos-1);drawMTP()};
+$("#mtpNext").onclick=()=>{mtpPos=Math.min(SENT.length-3,mtpPos+1);drawMTP()};
+drawMTP();
+
+/* ---------------- data: disclosure ---------------- */
+const DISC=[
+  ["Corpus size","ok","Disclosed","14.8T high-quality, diverse tokens."],
+  ["Source mixture","warn","Not disclosed","Described only qualitatively: more maths and code than V2, and more languages beyond English and Chinese."],
+  ["Filtering & dedup","warn","Partial","“Refined pipeline to minimise redundancy while keeping diversity”. No thresholds or classifiers named."],
+  ["Tokenizer","ok","Disclosed","Byte-level BPE, 128K vocab. Tokens that merge punctuation with line breaks are randomly split during training to reduce boundary bias."],
+  ["FIM","ok","Disclosed","Prefix-Suffix-Middle format, applied at a rate of 0.1."],
+  ["Packing","ok","Disclosed","Documents packed into sequences, with no cross-sample attention masking during pre-training."],
+];
+$("#discloseRows").innerHTML=DISC.map(d=>`<div class="disclose-row"><b>${d[0]}</b><span><span class="pill ${d[1]}">${d[2]}</span></span><p>${d[3]}</p></div>`).join("");
+
+/* ---------------- data: FIM ---------------- */
+const CODE=`def moving_average(xs, k):
+    out = []
+    for i in range(len(xs) - k + 1):
+        window = xs[i:i + k]
+        out.append(sum(window) / k)
+    return out`;
+const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+let fimRng=mulberry32(5);
+function drawFIM(){
+  const lines=CODE.split("\n"); const starts=[];let acc=0;lines.forEach(l=>{starts.push(acc);acc+=l.length+1});
+  const a=1+Math.floor(fimRng()*(lines.length-2)), b=a+1+Math.floor(fimRng()*Math.min(2,lines.length-1-a));
+  const i=starts[a], j=b<lines.length?starts[b]:CODE.length;
+  const P=CODE.slice(0,i), M=CODE.slice(i,j), S=CODE.slice(j);
+  $("#fimOrig").innerHTML=`<span class="seg-p">${esc(P)}</span><span class="seg-m">${esc(M)}</span><span class="seg-s">${esc(S)}</span>`;
+  const sp=t=>`<span class="special">${esc(t)}</span>`;
+  $("#fimOut").innerHTML=`${sp("<|fim_begin|>")}<span class="seg-p">${esc(P)}</span>${sp("<|fim_hole|>")}<span class="seg-s">${esc(S)}</span>${sp("<|fim_end|>")}<span class="seg-m">${esc(M)}</span>${sp("<|eos_token|>")}`;
+}
+$("#fimResample").onclick=drawFIM; drawFIM();
+let dotRng=mulberry32(21);
+function drawDots(){
+  let n=0; const html=[]; for(let i=0;i<1000;i++){const on=dotRng()<0.1; if(on)n++; html.push(`<div class="dot${on?" on":""}"></div>`);}
+  $("#fimDots").innerHTML=html.join(""); $("#fimCount").textContent=`${n} of 1,000 documents rewritten as FIM (${(n/10).toFixed(1)}%)`;
+}
+$("#fimSample").onclick=drawDots; drawDots();
+
+/* ---------------- data: packing ---------------- */
+let packRng=mulberry32(3);
+function drawPacks(){
+  const SEQ=4096, ROWS=6, docs=[]; let total=0;
+  while(total<SEQ*ROWS){const len=Math.round(150+Math.pow(packRng(),2)*3800); docs.push(len); total+=len;}
+  const fills=["var(--std)","var(--inh)","var(--rule-strong)","var(--blue-soft)"];
+  const rows=[]; let d=0, left=docs[0];
+  for(let r=0;r<ROWS;r++){
+    let room=SEQ; const segs=[];
+    while(room>0){const take=Math.min(room,left); segs.push({d,take,split:take<docs[d]}); room-=take; left-=take; if(left===0){d++;left=docs[d];}}
+    rows.push(segs);
+  }
+  $("#packs").innerHTML=rows.map((segs,r)=>`<div class="pack-row"><span class="mono">seq ${r+1}</span><div class="pack">${segs.map(s=>`<div title="Document ${s.d+1}: ${fmt(docs[s.d])} tokens${s.split?" (split across rows)":""}" style="width:${s.take/SEQ*100}%;background:${fills[s.d%fills.length]}"></div>`).join("")}</div></div>`).join("")
+    +`<p class="mono" style="font-size:12px;color:var(--muted)">${d} documents · 0 padding tokens · hover a segment for its length</p>`;
+}
+$("#packAgain").onclick=drawPacks; drawPacks();
+
+/* ---------------- training: schedule ---------------- */
+const PEAK=2.2e-4, LOWLR=2.2e-5, FINAL=7.3e-6, WARM=0.025;
+function lr(T){
+  if(T<WARM) return PEAK*T/WARM;
+  if(T<10) return PEAK;
+  if(T<14.3) return LOWLR+(PEAK-LOWLR)*0.5*(1+Math.cos(Math.PI*(T-10)/4.3));
+  if(T<14.633) return LOWLR;
+  return FINAL;
+}
+function bsz(T){return T<0.469?Math.round(3072+(15360-3072)*T/0.469):15360}
+const SX=v=>60+v/14.8*640;
+function drawSched(){
+  const svg=$("#schedSvg"); svg.innerHTML="";
+  const ly=v=>150-v/2.4e-4*130, by=v=>250-v/16000*55;
+  [[10,14.3,"cosine decay"],[14.3,14.8,"low LR"]].forEach(([a,b,t])=>{svg.appendChild(svgEl("rect",{x:SX(a),y:14,width:SX(b)-SX(a),height:236,fill:"var(--paper)"}));});
+  svg.appendChild(svgEl("text",{x:SX(12.15),y:28,"text-anchor":"middle"},"cosine decay"));
+  svg.appendChild(svgEl("text",{x:SX(5),y:28,"text-anchor":"middle"},"constant peak LR"));
+  [0,1e-4,2e-4].forEach(v=>{svg.appendChild(svgEl("line",{x1:60,x2:700,y1:ly(v),y2:ly(v),stroke:"var(--rule)"}));svg.appendChild(svgEl("text",{x:54,y:ly(v)+4,"text-anchor":"end"},v?v.toExponential(0):"0"))});
+  svg.appendChild(svgEl("text",{x:6,y:44},"learning"));svg.appendChild(svgEl("text",{x:6,y:57},"rate"));
+  [3072,15360].forEach(v=>{svg.appendChild(svgEl("line",{x1:60,x2:700,y1:by(v),y2:by(v),stroke:"var(--rule)"}));svg.appendChild(svgEl("text",{x:54,y:by(v)+4,"text-anchor":"end"},fmt(v)))});
+  svg.appendChild(svgEl("text",{x:6,y:182},"batch"));
+  [0,2,4,6,8,10,12,14].forEach(v=>svg.appendChild(svgEl("text",{x:SX(v),y:266,"text-anchor":"middle"},v+"T")));
+  let p="",q="";for(let i=0;i<=600;i++){const T=14.8*i/600;p+=(i?"L":"M")+SX(T).toFixed(1)+","+ly(lr(T)).toFixed(1);q+=(i?"L":"M")+SX(T).toFixed(1)+","+by(bsz(T)).toFixed(1);}
+  svg.appendChild(svgEl("path",{d:p+`L${SX(14.8)},150L60,150Z`,fill:"var(--blue)",opacity:0.10}));
+  svg.appendChild(svgEl("path",{d:p,fill:"none",stroke:"var(--blue)","stroke-width":2}));
+  svg.appendChild(svgEl("path",{d:q,fill:"none",stroke:"var(--ink)","stroke-width":1.6}));
+  const T=+$("#schedRange").value, x=SX(T);
+  svg.appendChild(svgEl("line",{x1:x,x2:x,y1:14,y2:252,stroke:"var(--ink)","stroke-width":1,"stroke-dasharray":"3 3"}));
+  svg.appendChild(svgEl("circle",{cx:x,cy:ly(lr(T)),r:5,fill:"var(--hl)",stroke:"var(--ink)","stroke-width":1.5}));
+  svg.appendChild(svgEl("circle",{cx:x,cy:by(bsz(T)),r:4,fill:"var(--panel)",stroke:"var(--ink)","stroke-width":1.5}));
+  const phase=T<WARM?"Warm-up":T<10?"Constant LR":T<14.3?"Cosine decay":"Final low-LR phase";
+  const cells=[
+    [T.toFixed(2)+"T","tokens seen"],[lr(T).toExponential(2),"learning rate"],[fmt(bsz(T)),"sequences per batch"],
+    [(bsz(T)*4096/1e6).toFixed(1)+"M","tokens per step"],[T<10?"0.3":"0.1","MTP loss weight λ"],[T<14.3?"0.001":"0","router bias speed γ"],[phase,"phase"]];
+  $("#schedReadout").innerHTML=cells.map(c=>`<div><b>${c[0]}</b><span>${c[1]}</span></div>`).join("");
+}
+$("#schedRange").addEventListener("input",drawSched); drawSched();
+
+const PHASES=[
+  {t:"Pre-training",d:"14.8T tokens · 4K context",n:"Pre-training on 14.8T tokens at 4K context, with the schedule above. The report says the run had no irrecoverable loss spikes and needed no rollbacks."},
+  {t:"Context extension",d:"4K → 32K → 128K",n:"Two stages of 1,000 steps each using YaRN: first to 32K context, then to 128K."},
+  {t:"Supervised fine-tuning",d:"1.5M instances",n:"Reasoning data is generated by an internal R1-style model and filtered; non-reasoning data is written by DeepSeek-V2.5 and checked by human annotators."},
+  {t:"Reinforcement learning",d:"GRPO",n:"Group Relative Policy Optimisation, which drops the separate critic and uses group scores as the baseline. Rewards come from rules where answers are checkable, and from a reward model otherwise."},
+];
+let phaseIdx=0;
+function drawPhases(){
+  $("#phases").innerHTML=PHASES.map((p,i)=>`<button class="phase" data-i="${i}" aria-pressed="${i===phaseIdx}"><b>${p.t}</b><span>${p.d}</span></button>`).join("");
+  $("#phaseNote").innerHTML=`<b>${PHASES[phaseIdx].t}.</b> ${PHASES[phaseIdx].n}`;
+  $$("#phases .phase").forEach(b=>b.onclick=()=>{phaseIdx=+b.dataset.i;drawPhases()});
+}
+drawPhases();
+
+/* ---------------- training: loop ---------------- */
+const LOOP=[
+  {t:"Batch",s:"std",p:"Up to 15,360 packed sequences of 4,096 tokens. About 10% of documents carry the FIM rewrite.",k:"≈ 63M tokens per step after ramp-up"},
+  {t:"Forward",s:"novel",p:"Most matrix multiplies run in FP8 with per-tile scales. Each token is routed to 8 of 256 experts on at most 4 nodes. Expert all-to-all traffic overlaps with compute under DualPipe.",k:"FP8 GEMMs · node-limited routing"},
+  {t:"Loss",s:"novel",p:"Next-token cross-entropy plus λ times the MTP loss for token t+2, plus a very small sequence-level balance term.",k:"L = L_main + λ·L_MTP"},
+  {t:"Backward",s:"novel",p:"Activation and weight gradients are also computed in FP8. Some activations are recomputed instead of stored to save memory.",k:"FP8 Dgrad + Wgrad · recompute RMSNorm and MLA up-projections"},
+  {t:"Optimizer",s:"std",p:"AdamW with gradient clipping. Master weights stay in FP32, while the Adam moments are stored in BF16 to save memory.",k:"β₁ 0.9 · β₂ 0.95 · weight decay 0.1 · clip 1.0"},
+  {t:"Router bias",s:"novel",p:"Outside of backprop: for each expert, compare its load in this batch with the average and nudge its bias by ±γ. This is the whole load-balancing mechanism.",k:"γ = 0.001, set to 0 for the final 500B tokens"},
+];
+let loopIdx=0, loopTimer=null;
+function drawLoop(){
+  const svg=$("#loopSvg"); svg.innerHTML="";
+  const cx=170,cy=165,R0=118;
+  svg.appendChild(svgEl("circle",{cx,cy,r:R0,fill:"none",stroke:"var(--rule-strong)","stroke-width":1.5,"stroke-dasharray":"5 5"}));
+  const ang=i=>-Math.PI/2+i*2*Math.PI/LOOP.length;
+  const a=ang(loopIdx);
+  LOOP.forEach((n,i)=>{
+    const g=svgEl("g",{class:`node ${n.s}${i===loopIdx?" active":""}`,tabindex:0,role:"button","aria-label":n.t});
+    const x=cx+R0*Math.cos(ang(i)), y=cy+R0*Math.sin(ang(i));
+    g.appendChild(svgEl("circle",{cx:x,cy:y,r:38}));
+    g.appendChild(svgEl("text",{x,y:y+4,"text-anchor":"middle"},n.t));
+    g.addEventListener("click",()=>{loopIdx=i;drawLoop()});
+    g.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();loopIdx=i;drawLoop()}});
+    svg.appendChild(g);
+  });
+  svg.appendChild(svgEl("text",{x:cx,y:cy-4,"text-anchor":"middle",style:"font-family:var(--f-ui);font-size:13px;fill:var(--ink);font-weight:600"},"one step"));
+  svg.appendChild(svgEl("text",{x:cx,y:cy+14,"text-anchor":"middle"},`stage ${loopIdx+1} of ${LOOP.length}`));
+  const n=LOOP[loopIdx];
+  $("#loopDetail").innerHTML=`<span class="pill ${n.s}">${label[n.s]}</span><h4>${n.t}</h4><p>${n.p}</p><p class="kv">${n.k}</p>`;
+}
+$("#loopNext").onclick=()=>{loopIdx=(loopIdx+1)%LOOP.length;drawLoop()};
+$("#loopPlay").onclick=()=>{
+  if(loopTimer){clearInterval(loopTimer);loopTimer=null;$("#loopPlay").textContent="Play";return;}
+  $("#loopPlay").textContent="Pause"; loopTimer=setInterval(()=>{loopIdx=(loopIdx+1)%LOOP.length;drawLoop()},1800);
+};
+drawLoop();
+
+/* ---------------- training: FP8 ---------------- */
+function e4m3(x){
+  if(x===0) return 0; const s=Math.sign(x); let a=Math.min(Math.abs(x),448);
+  let e=Math.floor(Math.log2(a)); if(e<-6) e=-6; const step=Math.pow(2,e-3);
+  return s*Math.round(a/step)*step;
+}
+const fpRng=mulberry32(9), TILES=4, TW=32;
+const ACT=Array.from({length:TILES*TW},()=>{let v=gauss(fpRng)*0.4; if(Math.abs(v)<0.01) v=0.01*Math.sign(v||1); return v;});
+function drawFP8(){
+  const lv=+$("#fp8Outlier").value, out=1.5*Math.pow(10,lv);
+  $("#fp8OutLabel").textContent=out>=1000?out.toExponential(1):out.toFixed(1);
+  const x=ACT.slice(); x[7]=out;
+  const quant=perTile=>{
+    const res=[];
+    for(let t=0;t<TILES;t++){
+      const tile=x.slice(t*TW,(t+1)*TW), amax=perTile?Math.max(...tile.map(Math.abs)):Math.max(...x.map(Math.abs)), sc=448/amax;
+      tile.forEach(v=>{const q=e4m3(v*sc)/sc; res.push({err:Math.abs(q-v)/Math.abs(v), zero:q===0});});
+    }
+    return res;
+  };
+  const paint=(el,res,statEl)=>{
+    el.innerHTML=res.map(r=>`<div class="${r.zero?"zero":""}" style="background:color-mix(in oklab,var(--warn) ${Math.min(100,r.err*200).toFixed(0)}%,var(--std))"></div>`).join("");
+    const mean=res.reduce((s,r)=>s+r.err,0)/res.length, z=res.filter(r=>r.zero).length;
+    statEl.textContent=`mean err ${(mean*100).toFixed(1)}% · ${z} zeroed`;
+  };
+  paint($("#heatTensor"),quant(false),$("#fp8TensorStat"));
+  paint($("#heatTile"),quant(true),$("#fp8TileStat"));
+}
+$("#fp8Outlier").addEventListener("input",drawFP8); drawFP8();
+
+/* ---------------- evidence ---------------- */
+const CLAIMS=[
+  {h:"Auxiliary-loss-free balancing beats an auxiliary-loss baseline",p:"Compared at two MoE scales with otherwise matched training; better on most benchmarks.",ev:"Ablated",c:"ok",w:"§4.5.2"},
+  {h:"Multi-token prediction improves downstream quality",p:"Ablated at two scales. The MTP module is dropped at inference, so the comparison has equal inference cost.",ev:"Ablated",c:"ok",w:"§4.5.1"},
+  {h:"FP8 training matches BF16 quality",p:"Validated on smaller MoE models against a BF16 baseline; relative loss error stays below 0.25%. Not shown at full scale.",ev:"Smaller-scale check",c:"warn",w:"§3.3 · App. B"},
+  {h:"Full training cost of 2.788M H800 GPU-hours (≈ $5.576M at $2/hour)",p:"Covers pre-training, context extension and post-training of the final model only. Excludes prior research and ablation runs, which the report states.",ev:"Self-reported",c:"std",w:"Table 1"},
+  {h:"Stable training with no irrecoverable loss spikes",p:"Stated in the report; no loss curves for the full run are published.",ev:"Self-reported",c:"std",w:"§1"},
+];
+$("#claims").innerHTML=CLAIMS.map(c=>`<div class="claim"><div><h4>${c.h}</h4><p>${c.p}</p></div><div class="right"><span class="pill ${c.c}">${c.ev}</span><span class="sec">${c.w}</span></div></div>`).join("");
+const QA=[
+  {q:"Why not just use an auxiliary balance loss?",a:"An auxiliary loss adds a gradient that pushes the router toward even loads even when that hurts prediction. A large enough coefficient to balance well degrades quality. The bias approach only changes which experts are selected and leaves the gating weights and the loss alone.",c:"§2.1.2"},
+  {q:"Is MLA new in this paper?",a:"No. Multi-head Latent Attention was introduced in DeepSeek-V2 and reused here unchanged in concept. UnpackAI marks it as inherited so it is not mistaken for a V3 contribution.",c:"§2.1.1"},
+  {q:"What would I need to reproduce the training loop?",a:"The architecture, optimiser settings and LR/batch schedule are fully specified. The main blockers are the undisclosed data mixture and filtering, and the systems work: FP8 kernels with tile scaling, and DualPipe with custom all-to-all kernels.",c:"§3 · §4.1–4.2"},
+];
+let qaIdx=0;
+function drawQA(){
+  $("#qs").innerHTML=QA.map((x,i)=>`<button class="chip" aria-pressed="${i===qaIdx}" data-i="${i}">${x.q}</button>`).join("");
+  $("#answer").innerHTML=`${QA[qaIdx].a} <span class="cite">${QA[qaIdx].c}</span>`;
+  $$("#qs .chip").forEach(b=>b.onclick=()=>{qaIdx=+b.dataset.i;drawQA()});
+}
+drawQA();
+})();
+</script>
+</body>
+</html>
