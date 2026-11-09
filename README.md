@@ -38,6 +38,13 @@ The full app would process each new paper in a fixed order. First, it collects n
 
 Fourth, the app compares the paper with earlier dossiers, so it can mark reused ideas as inherited. Fifth, every generated paragraph goes through the plain-writing skill before the app shows it, and `CLAUDE.md` has the rule for the project. Sixth, the app picks interactive figure templates that match the extracted ideas, and it fills them with the numbers from the paper. Each number links to the paper section it comes from.
 
+## Unpack skill
+
+The unpack skill in `.claude/skills/unpack/` has the steps that Claude Code follows for each new unpack request, e.g., "/unpack https://arxiv.org/abs/2312.00752". The skill picks the paper type, fills in the dossier fields, chooses interactive figures from the existing ones, and adds the dossier to `index.html`. It also has two check scripts, which you can run on their own:
+
+- `check_text.py` reports the plain-writing problems that a script can find, e.g., dashes, curly quotes, and sentences that start with a demonstrative pronoun.
+- `check_dossiers.js` opens every tab of every dossier in a browser, and it reports script errors, routing problems, and pages that scroll sideways on a phone.
+
 ## Plain-writing skill
 
 The plain-writing skill in `.claude/skills/plain-writing/` is copied from [docwriter-org/plain-writing-skill](https://github.com/docwriter-org/plain-writing-skill) at commit `f0d3630`. It is under the MIT license, and the license file is in the same folder.
