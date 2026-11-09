@@ -1,8 +1,19 @@
 # UnpackAI server
 
-The server makes every call to Claude for UnpackAI, and it stores everything it generates in a SQLite database. It reads the Claude API key from the OS keychain, so the key never appears in the browser, in a request header from the browser, in an environment variable, or in the repository.
+The server makes every call to Claude for UnpackAI, and it stores everything it generates in a SQLite database. It reads the Claude API key from a secret store, so the key never appears in the browser, in a request header from the browser, in an environment variable, or in the repository.
 
-## Set up the server
+## Secret stores
+
+The `UNPACKAI_SECRET_SOURCE` variable picks the secret store, and the variable never holds the key itself.
+
+| `UNPACKAI_SECRET_SOURCE` | Where the key comes from | When to use it |
+| --- | --- | --- |
+| `keychain` (the default) | The OS keychain, under service `unpackai` and account `anthropic_api_key` | The server runs directly on your computer |
+| `docker-secret` | The Docker secret at `/run/secrets/anthropic_api_key` | The server runs in a container. The image sets `docker-secret` as the source. |
+
+To run the server in Docker, follow the steps in "Run everything in Docker" in the main `README.md`. The steps below run the server directly on your computer.
+
+## Set up the server without Docker
 
 First, install the dependencies in a virtual environment.
 
@@ -32,7 +43,7 @@ The server listens on 127.0.0.1 by default, so only your own computer can reach 
 
 | Method and path | What it does |
 | --- | --- |
-| `GET /api/health` | Says whether a key is in the keychain. It never returns the key. |
+| `GET /api/health` | Names the secret store and says whether it has a key. It never returns the key. |
 | `POST /api/unpack` | Starts an unpack. The body is `{"url": "..."}` with an arXiv link or id, a PDF URL, or a blog URL, or `{"text": "..."}` with the full text. |
 | `GET /api/papers` | Lists every paper with its status, which is queued, running, done, or failed. |
 | `GET /api/papers/{id}` | Returns one paper with its latest dossier. |
@@ -66,13 +77,13 @@ The logs never contain the API key or request headers, and the server does the f
 - The server's request log writes only the method, the path, the status code, and the time taken. The uvicorn access log is turned off, and nothing logs query strings or bodies.
 - The Anthropic SDK and the HTTP client libraries are capped at WARNING, and the server removes `ANTHROPIC_LOG` from its environment. At DEBUG level, the SDK logs the full request options and the response headers.
 - A filter on every log handler replaces the key, and any `Authorization` or `x-api-key` value, with `[REDACTED]`. The filter is a backup in case a library logs a header anyway.
-- The server also removes `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` from its environment, so the keychain is the only place the SDK can get a credential.
+- The server also removes `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` from its environment, so the secret store is the only place the SDK can get a credential.
 
 The test `test_key_comes_from_keychain_and_never_reaches_logs_or_responses` checks these rules. It sets the root logger and `ANTHROPIC_LOG` to debug, runs a full unpack, and checks that no log line or API response contains the key or a request header.
 
 ## Tests
 
-The tests use an in-memory keychain and a fake Claude API, so they don't need a key or a network connection.
+The tests use an in-memory keychain, a temporary Docker secret file, and a fake Claude API, so they don't need a key or a network connection. To run them in a container, run `docker compose --profile test run --rm test` from the repository root. To run them on your computer, use the commands below.
 
 ```bash
 .venv/bin/pip install -r requirements-dev.txt

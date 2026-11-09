@@ -27,7 +27,11 @@ const [outDir, onlyDoc] = process.argv.slice(2);
   for (const v of views) {
     const page = await browser.newPage({ viewport: { width: v.width, height: 900 }, colorScheme: v.scheme });
     page.on('pageerror', e => problems.push(`${v.name}: script error: ${e.message}`));
-    page.on('console', m => { if (m.type() === 'error') problems.push(`${v.name}: console error: ${m.text()}`); });
+    // A failed load of a web font or other outside file isn't a problem in
+    // the page, and the check must also work offline, e.g., in a container
+    // with no network. Failed loads of local files are reported.
+    page.on('console', m => { if (m.type() === 'error' && !m.text().startsWith('Failed to load resource')) problems.push(`${v.name}: console error: ${m.text()}`); });
+    page.on('requestfailed', r => { if (r.url().startsWith('file:')) problems.push(`${v.name}: can't load ${r.url()}`); });
     await page.goto(page_url);
     await page.waitForTimeout(300);
 

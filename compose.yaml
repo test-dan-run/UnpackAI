@@ -1,0 +1,68 @@
+# UnpackAI containers.
+#
+#   scripts/compose-up.sh                         start the server
+#   docker compose --profile test run --rm test   run the server tests
+#   docker compose --profile checks run --rm checks  run the page checks
+#
+# The API key reaches the server only as the Docker secret
+# /run/secrets/anthropic_api_key. scripts/compose-up.sh reads the key from the
+# host keychain and passes it to Compose for that one command.
+
+name: unpackai
+
+services:
+  app:
+    build:
+      context: .
+      target: runtime
+    image: unpackai-app:local
+    ports:
+      # Only this computer can reach the server.
+      - "127.0.0.1:${UNPACKAI_PORT:-8000}:8000"
+    volumes:
+      - unpackai-data:/data
+    secrets:
+      - source: anthropic_api_key
+        target: anthropic_api_key
+    environment:
+      UNPACKAI_SECRET_SOURCE: docker-secret
+      UNPACKAI_MODEL: ${UNPACKAI_MODEL:-claude-opus-5-5}
+    # The root filesystem isn't read-only, because Compose copies a secret
+    # from an environment variable into the container. A secret from a file
+    # works with a read-only filesystem, but it needs the key in a file on
+    # the host, so the key would sit on disk.
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  test:
+    profiles: [test]
+    build:
+      context: .
+      target: test
+    image: unpackai-test:local
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  checks:
+    profiles: [checks]
+    build:
+      context: .
+      dockerfile: docker/checks.Dockerfile
+    image: unpackai-checks:local
+    network_mode: none
+    ipc: host
+    volumes:
+      - ./shots:/shots
+
+secrets:
+  anthropic_api_key:
+    # Compose reads the value from this variable on the host when it creates
+    # the container. The variable isn't set inside the container.
+    environment: UNPACKAI_ANTHROPIC_API_KEY
+
+volumes:
+  unpackai-data:

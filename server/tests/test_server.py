@@ -22,6 +22,7 @@ def client(unpacker, fake_keyring):
 def test_parse_source():
     assert parse_source("https://arxiv.org/abs/2312.00752v2").key == "arxiv:2312.00752"
     assert parse_source("2312.00752").url == "https://arxiv.org/pdf/2312.00752"
+    assert parse_source("https://arxiv.org/abs/2312.00752?context=cs#S4").key == "arxiv:2312.00752"
     assert parse_source("https://example.com/paper.pdf").kind == "pdf_url"
     assert parse_source("https://example.com/blog/post").kind == "web_url"
     assert parse_source(text="Full text").kind == "text"
@@ -99,7 +100,7 @@ def test_key_comes_from_keychain_and_never_reaches_logs_or_responses(unpacker, f
     assert "Request options" not in log_text
     for body in bodies:
         assert FAKE_KEY not in body
-    assert json.loads(bodies[0]) == {"ok": True, "api_key_in_keychain": True}
+    assert json.loads(bodies[0]) == {"ok": True, "secret_source": "keychain", "api_key_configured": True}
 
 
 def test_redaction_filter_catches_headers_if_a_library_logs_them():
@@ -117,7 +118,7 @@ def test_redaction_filter_catches_headers_if_a_library_logs_them():
 
 def test_missing_key_fails_the_unpack_with_a_clear_message(unpacker, fake_keyring, fake_api):
     with TestClient(create_app(unpacker=unpacker)) as c:
-        assert c.get("/api/health").json()["api_key_in_keychain"] is False
+        assert c.get("/api/health").json()["api_key_configured"] is False
         pid = c.post("/api/unpack", json={"url": "2312.00752"}).json()["paper_id"]
         paper = c.get(f"/api/papers/{pid}").json()
     assert paper["status"] == "failed"
@@ -170,3 +171,25 @@ def test_dossier_versions_increase(tmp_path):
     assert db.add_dossier(pid, DRAFT, []) == 1
     assert db.add_dossier(pid, DRAFT, []) == 2
     assert db.latest_dossier(pid)["version"] == 2
+
+
+def test_docker_secret_source_reads_the_mounted_file(tmp_path, monkeypatch, unpacker, fake_api):
+    secret = tmp_path / "anthropic_api_key"
+    monkeypatch.setenv("UNPACKAI_SECRET_SOURCE", "docker-secret")
+    monkeypatch.setenv("UNPACKAI_SECRET_FILE", str(secret))
+    with TestClient(create_app(unpacker=unpacker)) as c:
+        assert c.get("/api/health").json() == {"ok": True, "secret_source": "docker-secret", "api_key_configured": False}
+        pid = c.post("/api/unpack", json={"url": "2312.00752"}).json()["paper_id"]
+        assert "compose-up.sh" in c.get(f"/api/papers/{pid}").json()["error"]
+
+        secret.write_text(FAKE_KEY + "\n")
+        assert c.get("/api/health").json()["api_key_configured"] is True
+        assert c.post("/api/unpack", json={"url": "2312.00752"}).json()["queued"] is True
+        assert c.get(f"/api/papers/{pid}").json()["status"] == "done"
+    assert fake_api.requests[0]["headers"]["authorization"] == f"Bearer {FAKE_KEY}"
+
+
+def test_unknown_secret_source_is_reported(monkeypatch):
+    monkeypatch.setenv("UNPACKAI_SECRET_SOURCE", "env")
+    with pytest.raises(secret_store.SecretStoreError):
+        secret_store.read_api_key()

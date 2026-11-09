@@ -34,7 +34,29 @@ The systems dossier has a roofline estimate that shows why standard attention is
 
 ## Server
 
-The `server/` folder has a small Python server that makes every call to Claude and stores the results in a SQLite database. It reads the API key from the OS keychain, and it keeps the key and request headers out of its logs. When the server is running, it also serves `index.html` at http://127.0.0.1:8000. The page doesn't call the server yet, so the Unpack button still shows the mock. The setup steps and the API are in `server/README.md`.
+The `server/` folder has a small Python server that makes every call to Claude and stores the results in a SQLite database. It reads the API key from a secret store, and it keeps the key and request headers out of its logs. When the server is running, it also serves `index.html` at http://127.0.0.1:8000. The page doesn't call the server yet, so the Unpack button still shows the mock. The API and the logging rules are in `server/README.md`.
+
+## Run everything in Docker
+
+Every part of the project runs in a container, so you only need Docker with Compose on the host. Compose defines three containers in `compose.yaml`:
+
+| Container | What it runs | How to start it |
+| --- | --- | --- |
+| `app` | The server, which also serves the page, with the database on the `unpackai-data` volume | `scripts/compose-up.sh` |
+| `test` | The server tests, with no network access | `docker compose --profile test run --rm test` |
+| `checks` | The text check and the browser check from the unpack skill, with no network access | `docker compose --profile checks run --rm checks` |
+
+The API key reaches the `app` container as a Docker secret, and it doesn't come from a file in the repository or an environment variable in the container. To start the server, follow the steps below:
+
+1. Store the key in your keychain with `scripts/store-key.sh`. The script uses `security` on macOS and `secret-tool` on Linux, and each tool asks for the key and hides what you type. You only need to store the key once.
+2. Run `scripts/compose-up.sh`. The script reads the key from the keychain and passes it to Docker Compose only for the start command. Compose then mounts the key in the container as `/run/secrets/anthropic_api_key`.
+3. Open http://127.0.0.1:8000 in a browser. The port is published on 127.0.0.1 only, so other computers can't reach the server. You can pick another port with the `UNPACKAI_PORT` variable.
+
+On Windows, run the scripts in WSL or Git Bash. The scripts use the Python `keyring` package when neither `security` nor `secret-tool` is installed.
+
+The database stays on the `unpackai-data` volume when you stop or rebuild the containers. `docker compose down -v` deletes the volume and every stored dossier. To make screenshots, create a `shots` folder that anyone can write to before you run the `checks` container, and the screenshots appear there.
+
+If your network inspects TLS traffic with its own certificate, the image builds can't download packages. To fix the builds, build a base image that trusts the certificate and pass it with `--build-arg PYTHON_IMAGE=<image>` for `app` and `test`, or `--build-arg PLAYWRIGHT_IMAGE=<image>` for `checks`.
 
 ## How the full app could work
 

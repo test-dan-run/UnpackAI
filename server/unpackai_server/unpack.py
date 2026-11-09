@@ -62,8 +62,11 @@ def parse_source(url: str | None = None, text: str | None = None) -> Source:
     if not url:
         raise UnpackError("Send a URL, an arXiv id, or the text of the paper.")
     url = url.strip()
-    m = ARXIV_ID.search(url)
-    if m and ("arxiv.org" in url or re.fullmatch(r"\d{4}\.\d{4,5}(v\d+)?", url)):
+    # Query strings and fragments don't identify an arXiv paper, so they are
+    # dropped before the match and never stored.
+    bare = re.split(r"[?#]", url, maxsplit=1)[0]
+    m = ARXIV_ID.search(bare)
+    if m and ("arxiv.org" in bare or re.fullmatch(r"\d{4}\.\d{4,5}(v\d+)?", bare)):
         arxiv_id = m.group(1)
         return Source(key=f"arxiv:{arxiv_id}", kind="arxiv", url=f"https://arxiv.org/pdf/{arxiv_id}")
     if not re.match(r"https?://", url, re.I):

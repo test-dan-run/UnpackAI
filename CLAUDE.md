@@ -16,4 +16,8 @@ Use the `/unpack` skill for every request to unpack a new paper or blog post, e.
 
 ## Calls to Claude
 
-Every call to Claude in the app goes through `server/unpackai_server/unpack.py`. The server reads the API key from the OS keychain with `secret_store.py`. Don't add code that reads the key from an environment variable, a file, or a request header, and don't log request headers, query strings, or request bodies. Run the server tests after you change the server, because one test checks that the key never reaches the logs.
+Every call to Claude in the app goes through `server/unpackai_server/unpack.py`. The server reads the API key with `secret_store.py`, from the OS keychain on a computer or from the Docker secret `/run/secrets/anthropic_api_key` in a container. Don't add code that reads the key from an environment variable, any other file, or a request header, and don't log request headers, query strings, or request bodies. Run the server tests after you change the server, because one test checks that the key never reaches the logs.
+
+## Containers
+
+Every part of the project runs in Docker, and `compose.yaml` defines the containers. When you add a dependency or a file that the server or the checks need at run time, add it to `Dockerfile` or `docker/checks.Dockerfile` too, and build and run the container to check it. Don't pass the API key to a container as an environment variable or a build argument, and don't copy it into an image.

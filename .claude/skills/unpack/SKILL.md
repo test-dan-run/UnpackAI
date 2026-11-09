@@ -126,6 +126,7 @@ Pick a short id of lowercase letters for the dossier, e.g., `mamba`, and a two-l
    - Run `node .claude/skills/unpack/scripts/check_dossiers.js <scratchpad>/shots <id>`. The script opens every tab of every dossier, and it reports script errors, tabs that show the wrong panel, and pages that scroll sideways on a phone.
    - Look at the screenshots of the new dossier at desktop width and at phone width, and use each interactive control once.
    - Keep screenshots in the scratchpad, not in the repository.
+   - If Docker is installed, you can run both checks in a container instead, with `docker compose --profile checks run --rm checks`.
 3. Update the documentation.
    - In `README.md`, update the count of complete dossiers.
    - If the paper type is new, add a row to the paper types table in `README.md` and to the table in the "Pick the paper type" section of the skill.
