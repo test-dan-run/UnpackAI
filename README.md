@@ -32,6 +32,10 @@ The dataset dossier has a pipeline diagram, a filter tester that computes page s
 
 The systems dossier has a roofline estimate that shows why standard attention is limited by memory traffic, and an animation of the loop over tiles. It also has a worked example of the online softmax and a calculator that compares HBM traffic for standard attention and FlashAttention. Its Performance tab names the baseline for each speedup, because the paper uses different baselines for different results.
 
+## Server
+
+The `server/` folder has a small Python server that makes every call to Claude and stores the results in a SQLite database. It reads the API key from the OS keychain, and it keeps the key and request headers out of its logs. When the server is running, it also serves `index.html` at http://127.0.0.1:8000. The page doesn't call the server yet, so the Unpack button still shows the mock. The setup steps and the API are in `server/README.md`.
+
 ## How the full app could work
 
 The full app would process each new paper in a fixed order. First, it collects new items from arXiv categories (cs.CL and cs.LG) and from the RSS feeds of lab blogs, and it accepts URLs and PDFs that a user pastes in. Second, it extracts the sections, tables, figures, and equations, using the LaTeX source from arXiv when it is available and the PDF otherwise. Third, an LLM fills in a fixed set of fields for the paper, e.g., the list of new ideas, the model blocks, the data steps, the training schedule, and the claims with their evidence.

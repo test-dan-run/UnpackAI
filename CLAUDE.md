@@ -13,3 +13,7 @@ If the skill doesn't load in a session, tell the user and stop. Don't rewrite th
 ## Unpack requests
 
 Use the `/unpack` skill for every request to unpack a new paper or blog post, e.g., a pasted arXiv link with a request to explain it, or a request to add a dossier. The skill is in `.claude/skills/unpack/SKILL.md`, and it covers reading the source, planning the tabs and figures, building the dossier in `index.html`, and checking the result. If the skill doesn't load in a session, tell the user before you start.
+
+## Calls to Claude
+
+Every call to Claude in the app goes through `server/unpackai_server/unpack.py`. The server reads the API key from the OS keychain with `secret_store.py`. Don't add code that reads the key from an environment variable, a file, or a request header, and don't log request headers, query strings, or request bodies. Run the server tests after you change the server, because one test checks that the key never reaches the logs.

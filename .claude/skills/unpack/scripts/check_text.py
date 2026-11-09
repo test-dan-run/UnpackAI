@@ -25,35 +25,40 @@ DEMONSTRATIVE = re.compile(r'(?:^|[.!?]["\']?\s+|>\s*|"\s*)(This|That|These|Thos
 NEG_PARALLEL = re.compile(r"\bnot (?:just|only|merely)\b", re.I)
 WORDS = re.compile(
     r"\b(delve|tapestry|landscape|robust|leverag\w*|pivotal|renowned|testament|"
-    r"seamless\w*|boasts?|game[- ]chang\w*|unlock\w*)\b",
+    r"seamless\w*|boasts?|game[- ]chang\w*|unlock(?:s|ing)?)\b",
     re.I,
 )
 
 
-def check(path):
+def check_lines(lines, html=False):
+    """Return (line_number, problem, line) for each problem in an iterable of lines."""
     problems = []
     in_style = False
-    with open(path, encoding="utf-8") as f:
-        for n, line in enumerate(f, 1):
-            if path.endswith(".html"):
-                if "<style" in line:
-                    in_style = True
-                if in_style:
-                    if "</style>" in line:
-                        in_style = False
-                    continue
-            for ch, name in CHARS.items():
-                if ch in line:
-                    problems.append((n, name, line))
-            for rx, name in (
-                (DEMONSTRATIVE, "sentence starts with a demonstrative"),
-                (NEG_PARALLEL, "negative parallelism"),
-                (WORDS, "overused word"),
-            ):
-                m = rx.search(line)
-                if m:
-                    problems.append((n, f"{name} ({m.group(0).strip()})", line))
+    for n, line in enumerate(lines, 1):
+        if html:
+            if "<style" in line:
+                in_style = True
+            if in_style:
+                if "</style>" in line:
+                    in_style = False
+                continue
+        for ch, name in CHARS.items():
+            if ch in line:
+                problems.append((n, name, line))
+        for rx, name in (
+            (DEMONSTRATIVE, "sentence starts with a demonstrative"),
+            (NEG_PARALLEL, "negative parallelism"),
+            (WORDS, "overused word"),
+        ):
+            m = rx.search(line)
+            if m:
+                problems.append((n, f"{name} ({m.group(0).strip()})", line))
     return problems
+
+
+def check(path):
+    with open(path, encoding="utf-8") as f:
+        return check_lines(f, html=path.endswith(".html"))
 
 
 def main():
