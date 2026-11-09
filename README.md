@@ -40,6 +40,8 @@ Colour carries meaning throughout: a highlighter yellow for new ideas, blue for 
    `architecture` (block graph + diffs), `data` (pipeline stages + disclosure flags), `training`
    (schedule, optimiser, stages), `claims[]` (evidence type, section).
 4. **Diff against prior work**: cross-reference earlier dossiers so inherited ideas are labelled as such.
-5. **Pick visuals**: map extracted mechanisms to a library of parameterised visual templates
+5. **Plain-writing pass**: every generated paragraph goes through the plain-writing rules
+   (the `/plain-writing` skill) before it is shown. See `CLAUDE.md`.
+6. **Pick visuals**: map extracted mechanisms to a library of parameterised visual templates
    (MoE router, attention/KV cache, schedule timeline, data funnel, quantisation, token stepper, etc.).
    Every number shown links back to the paper section it came from.
