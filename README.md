@@ -4,7 +4,7 @@ UnpackAI is a web app that explains new AI research papers and lab blog posts. F
 
 ## Prototype
 
-The file `index.html` is a clickable prototype, and you can open it in a browser without a build step. The prototype has one complete dossier, for the DeepSeek-V3 Technical Report (arXiv 2412.19437). The other library entries show how the list of papers would look.
+The file `index.html` is a clickable prototype, and you can open it in a browser without a build step. The prototype has complete dossiers for three papers, one of each paper type, and the other library entries show how the list of papers would look.
 
 The page has three parts:
 
@@ -17,6 +17,20 @@ The page has three parts:
   - Evidence tags each claim by the kind of evidence behind it, e.g., an ablation or a figure the authors report without a separate check.
 
 The colors have a fixed meaning on every page. Yellow marks an idea that is new in the paper, blue marks an idea from earlier work, and grey marks standard practice.
+
+## Paper types
+
+UnpackAI picks the dossier tabs from the type of paper, because each type puts its new ideas in a different place. Every dossier has an Overview tab with the summary table and an Evidence tab with the claims.
+
+| Paper type | Example in the prototype | Tabs between Overview and Evidence |
+| --- | --- | --- |
+| Model paper | DeepSeek-V3 Technical Report (arXiv 2412.19437) | Architecture, Data, Training loop |
+| Dataset paper | The FineWeb Datasets (arXiv 2406.17557) | Pipeline, Filters, Deduplication, FineWeb-Edu |
+| Systems paper | FlashAttention (arXiv 2205.14135) | Bottleneck, Algorithm, Performance |
+
+The dataset dossier has a pipeline diagram, a filter tester that computes page statistics from example pages, and a simulation of the two ways to deduplicate across crawl snapshots. Its Evidence tab also lists what the authors released, e.g., the data, the code, and the ablation models.
+
+The systems dossier has a roofline estimate that shows why standard attention is limited by memory traffic, and an animation of the loop over tiles. It also has a worked example of the online softmax and a calculator that compares HBM traffic for standard attention and FlashAttention. Its Performance tab names the baseline for each speedup, because the paper uses different baselines for different results.
 
 ## How the full app could work
 

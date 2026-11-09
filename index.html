@@ -114,7 +114,8 @@ p{margin:0}
 .paper-head{display:grid;gap:10px;max-width:980px}
 .paper-head h1{font-family:var(--f-display);font-weight:600;font-size:clamp(28px,3.4vw,40px);line-height:1.1;letter-spacing:-.01em}
 .thesis{font-size:17px;line-height:1.5;max-width:68ch}
-.specs{display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--rule);border-radius:var(--r);background:var(--panel);margin-top:6px;width:fit-content;max-width:100%}
+.specs{display:grid;grid-template-columns:repeat(6,minmax(0,auto));border:1px solid var(--rule);border-radius:var(--r);background:var(--panel);margin-top:6px;width:fit-content;max-width:100%}
+.spec span{display:block;max-width:150px}
 .spec{padding:8px 14px;border-right:1px solid var(--rule)}
 .spec:last-child{border-right:0}
 .spec b{display:block;font-family:var(--f-mono);font-size:16px;font-weight:600}
@@ -264,7 +265,50 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
 
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:var(--r);font-size:13.5px;max-width:calc(100% - 32px);z-index:40}
 
+/* paper types and the extra dossiers */
+.dossier{scroll-margin-top:70px}
+.ptype-note{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;font-size:13.5px;color:var(--muted);max-width:82ch;margin-top:4px}
+.ptype{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:2px 8px;border-radius:3px;background:var(--ink);color:var(--paper)}
+.pipe{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:18px;align-items:start}
+.pipe .stack{max-width:420px}
+.bar-track{height:14px;background:var(--paper);border-radius:3px;margin-top:4px}
+.bar-track>div{height:100%;border-radius:3px}
+.sliders{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.sliders label{font-size:13px;display:grid;gap:4px;align-content:start}
+.pages{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.page-card{border:1px solid var(--rule);border-radius:var(--r);padding:10px;display:grid;gap:8px;align-content:start;background:var(--panel)}
+.page-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px}
+.page-text{font-size:11.5px;padding:8px;max-height:150px;white-space:pre-wrap;word-break:break-word}
+.page-card.removed .page-text{opacity:.5}
+.page-stats{display:grid;gap:2px;font-size:12px;color:var(--muted)}
+.page-stats span{display:flex;justify-content:space-between;gap:8px}
+.page-stats .fail{color:var(--warn);font-weight:600}
+.steps3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.step-card{background:var(--paper);border-radius:var(--r);padding:12px 14px;display:grid;gap:6px;align-content:start}
+.step-card p{font-size:14px}
+.edu-list{display:grid;gap:0;border:1px solid var(--rule);border-radius:var(--r)}
+.edu-row{display:grid;grid-template-columns:minmax(0,1fr) 70px 86px;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--rule);font-size:14px}
+.edu-row:last-child{border-bottom:0}
+.edu-row.removed span:first-child{color:var(--muted)}
+.tilewrap{display:grid;grid-template-columns:auto minmax(0,1fr);gap:22px;align-items:start}
+.tile-top{font-size:12px;color:var(--muted);margin:0 0 6px 26px}
+.tile-row{display:flex;gap:6px;align-items:stretch}
+.tile-left{writing-mode:vertical-rl;transform:rotate(180deg);font-size:12px;color:var(--muted);text-align:center}
+.tilegrid{display:grid;grid-template-columns:repeat(4,46px);grid-auto-rows:46px;gap:3px}
+.tilegrid div{border-radius:3px;background:var(--paper);border:1px solid var(--rule);font-family:var(--f-mono);font-size:10.5px;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.tilegrid .done{background:var(--inh);color:var(--inh-ink);border-color:transparent}
+.tilegrid .cur{background:var(--hl);color:var(--hl-ink);border-color:var(--ink)}
+.tilewrap .detail{border-left:1px solid var(--rule)}
+table.small{min-width:560px}
+table.small td,table.small th{padding:8px 12px}
+@media (max-width:620px){
+  .pipe,.tilewrap{grid-template-columns:minmax(0,1fr)}
+  .pipe .detail,.tilewrap .detail{border-left:0;border-top:1px solid var(--rule);padding-left:0;padding-top:14px}
+  .steps3{grid-template-columns:minmax(0,1fr)}
+}
 @media (max-width:1100px){
+  .specs{grid-template-columns:repeat(3,minmax(0,1fr));width:100%}
+  .spec{border-bottom:1px solid var(--rule)}
   .arch{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .arch .detail{grid-column:1 / -1;border-left:0;border-top:1px solid var(--rule);padding-left:0;padding-top:14px}
   .two-col,.split{grid-template-columns:minmax(0,1fr)}
@@ -284,7 +328,7 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
   .disclose-row p{grid-column:1 / -1}
   .claim{grid-template-columns:minmax(0,1fr)}
   .claim .right{align-items:flex-start;flex-direction:row}
-  .spec{flex:1 1 33%;border-bottom:1px solid var(--rule)}
+  .specs{grid-template-columns:repeat(2,minmax(0,1fr))}
   .dots{grid-template-columns:repeat(25,1fr)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -326,6 +370,7 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
   </aside>
 
   <main class="dossier" id="dossier">
+  <div class="doc" data-doc="dsv3">
     <div class="paper-head">
       <div class="eyebrow">Technical report, <a href="https://arxiv.org/abs/2412.19437" target="_blank" rel="noopener">arXiv 2412.19437</a>, December 2024, DeepSeek-AI</div>
       <h1>DeepSeek-V3 Technical Report</h1>
@@ -338,6 +383,7 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
         <div class="spec"><b>128K</b><span>tokens of context</span></div>
         <div class="spec"><b>2.788M</b><span>H800 GPU hours</span></div>
       </div>
+      <p class="ptype-note"><span class="ptype">Model paper</span> For model papers, UnpackAI shows tabs for the architecture, the training data, and the training loop.</p>
       <div class="legend">
         <span><i class="sw novel"></i>New in this paper</span>
         <span><i class="sw inh"></i>Inherited from earlier work</span>
@@ -345,12 +391,12 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
       </div>
     </div>
 
-    <nav class="tabs" role="tablist" aria-label="Dossier sections" id="tabs">
-      <a class="tab" role="tab" href="#overview" data-tab="overview">Overview <span class="count">6</span></a>
-      <a class="tab" role="tab" href="#architecture" data-tab="architecture">Architecture</a>
-      <a class="tab" role="tab" href="#data" data-tab="data">Data</a>
-      <a class="tab" role="tab" href="#training" data-tab="training">Training loop</a>
-      <a class="tab" role="tab" href="#evidence" data-tab="evidence">Evidence</a>
+    <nav class="tabs" role="tablist" aria-label="Dossier sections">
+      <a class="tab" role="tab" href="#dsv3-overview" data-tab="overview">Overview <span class="count">6</span></a>
+      <a class="tab" role="tab" href="#dsv3-architecture" data-tab="architecture">Architecture</a>
+      <a class="tab" role="tab" href="#dsv3-data" data-tab="data">Data</a>
+      <a class="tab" role="tab" href="#dsv3-training" data-tab="training">Training loop</a>
+      <a class="tab" role="tab" href="#dsv3-evidence" data-tab="evidence">Evidence</a>
     </nav>
 
     <!-- ================= OVERVIEW ================= -->
@@ -378,10 +424,10 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
           <div class="viz-head"><div><div class="eyebrow">Reading order</div><h3>Suggested order for reading the dossier</h3></div></div>
           <div class="viz-body">
             <ol class="gaps" style="padding-left:20px">
-              <li>The <a href="#architecture">router simulation</a> shows why an auxiliary balancing loss can lower quality, and how the bias method keeps the experts balanced without it.</li>
-              <li>The <a href="#architecture">KV cache calculator</a> shows how much memory MLA saves for long inputs.</li>
-              <li>The <a href="#training">Training loop tab</a> shows the learning rate schedule, and it shows why a separate scale for each tile keeps FP8 training accurate.</li>
-              <li>The <a href="#evidence">Evidence tab</a> shows which claims the authors tested with ablations and which claims they only state.</li>
+              <li>The <a href="#dsv3-architecture">router simulation</a> shows why an auxiliary balancing loss can lower quality, and how the bias method keeps the experts balanced without it.</li>
+              <li>The <a href="#dsv3-architecture">KV cache calculator</a> shows how much memory MLA saves for long inputs.</li>
+              <li>The <a href="#dsv3-training">Training loop tab</a> shows the learning rate schedule, and it shows why a separate scale for each tile keeps FP8 training accurate.</li>
+              <li>The <a href="#dsv3-evidence">Evidence tab</a> shows which claims the authors tested with ablations and which claims they only state.</li>
             </ol>
           </div>
         </div>
@@ -610,6 +656,420 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
         </div>
       </div>
     </section>
+  </div>
+  <div class="doc" data-doc="fineweb" hidden>
+    <div class="paper-head">
+      <div class="eyebrow">Dataset paper, <a href="https://arxiv.org/abs/2406.17557" target="_blank" rel="noopener">arXiv 2406.17557</a>, June 2024, Hugging Face</div>
+      <h1>The FineWeb Datasets: Decanting the Web for the Finest Text Data at Scale</h1>
+      <p class="thesis">FineWeb is an open English web dataset of 15T tokens, built from 96 snapshots of Common Crawl, which is a public archive of web pages. The authors chose each processing step by training small models on the output of the step and comparing their benchmark scores. The main findings are <span class="mark">deduplicating each snapshot on its own instead of across all snapshots</span>, <span class="mark">three new filters chosen from measured page statistics</span>, and <span class="mark">FineWeb-Edu, a subset picked by a classifier trained on scores from Llama-3-70B-Instruct</span>.</p>
+      <div class="specs">
+        <div class="spec"><b>15T</b><span>tokens in FineWeb</span></div>
+        <div class="spec"><b>96</b><span>Common Crawl snapshots</span></div>
+        <div class="spec"><b>1.3T</b><span>tokens in FineWeb-Edu</span></div>
+        <div class="spec"><b>5.4T</b><span>tokens with an Edu score of 2 or more</span></div>
+        <div class="spec"><b>1.82B</b><span>parameters per ablation model</span></div>
+        <div class="spec"><b>28B</b><span>tokens per ablation run</span></div>
+      </div>
+      <p class="ptype-note"><span class="ptype">Dataset paper</span> For dataset papers, UnpackAI adds tabs for the processing pipeline, the filters, and deduplication, and the Evidence tab lists what the authors released.</p>
+      <div class="legend">
+        <span><i class="sw novel"></i>New in this paper</span>
+        <span><i class="sw inh"></i>Inherited from earlier work</span>
+        <span><i class="sw std"></i>Standard practice</span>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Dossier sections">
+      <a class="tab" role="tab" href="#fineweb-overview" data-tab="overview">Overview <span class="count">5</span></a>
+      <a class="tab" role="tab" href="#fineweb-pipeline" data-tab="pipeline">Pipeline</a>
+      <a class="tab" role="tab" href="#fineweb-filters" data-tab="filters">Filters</a>
+      <a class="tab" role="tab" href="#fineweb-dedup" data-tab="dedup">Deduplication</a>
+      <a class="tab" role="tab" href="#fineweb-edu" data-tab="edu">FineWeb-Edu</a>
+      <a class="tab" role="tab" href="#fineweb-evidence" data-tab="evidence">Evidence</a>
+    </nav>
+    <section class="panel" data-panel="overview">
+      <div>
+        <div class="section-title"><h2>New ideas in the paper</h2><span class="eyebrow">Summary table</span></div>
+        <p class="lede" style="margin-top:8px">Most decisions in a dataset paper are about which pages to keep. UnpackAI lists each decision with the practice it replaces and the paper's reason for it.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Decision</th><th>Status</th><th>Previous practice</th><th>Why it works</th><th>Explained in</th></tr></thead>
+          <tbody id="fwRows"></tbody>
+        </table>
+      </div>
+      <div class="split">
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Dataset sizes</div><h3>Size of each released dataset in tokens</h3></div>
+        </div>
+        <div class="viz-body">
+          <div class="svg-wrap"><svg id="fwSizes" viewBox="0 0 470 130" width="100%" role="img" aria-label="Token counts of FineWeb and FineWeb-Edu"></svg></div>
+          <p class="notice">FineWeb-Edu keeps less than a tenth of the tokens in FineWeb. The authors also released a version with a lower threshold for training runs that need more tokens.</p>
+        </div>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Reading order</div><h3>Suggested order for reading the dossier</h3></div>
+        </div>
+        <div class="viz-body">
+          <ol class="gaps" style="padding-left:20px">
+            <li>The <a href="#fineweb-pipeline">pipeline diagram</a> shows each processing step in order and marks the new steps.</li>
+            <li>The <a href="#fineweb-filters">filter tester</a> lets you change the thresholds of the new filters and see which example pages they remove.</li>
+            <li>The <a href="#fineweb-dedup">deduplication simulation</a> shows why deduplicating across all snapshots removed good pages from old snapshots.</li>
+            <li>The <a href="#fineweb-edu">FineWeb-Edu tab</a> shows how the classifier threshold changes the size of the dataset.</li>
+          </ol>
+        </div>
+      </div>
+      </div>
+    </section>
+    <section class="panel" data-panel="pipeline" hidden>
+      <div>
+        <div class="section-title"><h2>Processing steps from raw crawl to FineWeb</h2></div>
+        <p class="lede" style="margin-top:8px">The pipeline runs the steps below in order on each Common Crawl snapshot. Select a step to read what it removes and where it comes from.</p>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Interactive pipeline diagram</div><h3>Processing steps in order</h3></div>
+        </div>
+        <div class="viz-body">
+          <div class="pipe" id="fwPipe">
+            <div class="stack">
+            <div class="stack-label">Steps for each snapshot</div>
+            <button class="blk std" data-blk="url">URL filtering</button>
+            <div class="arrow">↓</div>
+            <button class="blk inh" data-blk="extract">Text extraction <small>trafilatura</small></button>
+            <div class="arrow">↓</div>
+            <button class="blk std" data-blk="lang">Language filter <small>English</small></button>
+            <div class="arrow">↓</div>
+            <button class="blk inh" data-blk="gopher">Gopher filters</button>
+            <div class="arrow">↓</div>
+            <button class="blk novel" data-blk="dedup">MinHash deduplication <small>per snapshot</small></button>
+            <div class="arrow">↓</div>
+            <button class="blk inh" data-blk="c4">C4 filters</button>
+            <div class="arrow">↓</div>
+            <button class="blk novel" data-blk="custom">New heuristic filters <small>3 filters</small></button>
+            <div class="arrow">↓</div>
+            <button class="blk std" data-blk="pii">Email and IP removal</button>
+            <div class="arrow">↓</div>
+            <button class="blk std" data-blk="out">FineWeb <small>15T tokens</small></button>
+            <div class="arrow">↓</div>
+            <button class="blk novel" data-blk="edu">Educational classifier <small>score 0 to 5</small></button>
+            <div class="arrow">↓</div>
+            <button class="blk std" data-blk="eduout">FineWeb-Edu <small>1.3T tokens</small></button>
+            </div>
+            <div class="detail" id="fwPipeDetail" aria-live="polite"></div>
+          </div>
+          <p class="notice"><b>What to notice:</b> Most of the steps come from earlier datasets, e.g., RefinedWeb, Gopher, and C4. The paper's own contributions are the choice of deduplication within each snapshot, the three new filters, and the educational classifier. The authors tested each step with ablation models before they kept it.</p>
+        </div>
+      </div>
+    </section>
+    <section class="panel" data-panel="filters" hidden>
+      <div>
+        <div class="section-title"><h2>New heuristic filters for low quality pages</h2></div>
+        <p class="lede" style="margin-top:8px">The authors looked for page statistics that differed between a higher quality and a lower quality version of the same crawl data. They turned three of the statistics into filters and kept each filter after ablations showed better benchmark scores.</p>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Interactive filter tester</div><h3>The three new filters applied to example pages</h3></div>
+          <div class="controls"><button class="btn small" id="fwReset">Use the paper's thresholds</button></div>
+        </div>
+        <div class="viz-body">
+          <div class="sliders">
+            <label for="fwT1">Remove a page if the share of lines that end in punctuation is at most <span class="mono" id="fwT1v"></span><input class="range" type="range" id="fwT1" min="0" max="0.6" step="0.01" value="0.12"></label>
+            <label for="fwT2">Remove a page if the share of characters in repeated lines is at least <span class="mono" id="fwT2v"></span><input class="range" type="range" id="fwT2" min="0.02" max="0.6" step="0.01" value="0.1"></label>
+            <label for="fwT3">Remove a page if the share of lines shorter than 30 characters is at least <span class="mono" id="fwT3v"></span><input class="range" type="range" id="fwT3" min="0.3" max="1" step="0.01" value="0.67"></label>
+          </div>
+          <div class="stats"><div class="stat"><b id="fwKept"></b><span>example pages kept</span></div></div>
+          <div class="pages" id="fwPages"></div>
+          <p class="proto-note">The example pages are written for the demo. The page statistics are computed from the text shown.</p>
+          <p class="notice"><b>What to notice:</b> With the paper's thresholds, the filters remove the menu, the product grid, and the forum page, which have little readable text. The poem is also removed, so the filters can remove some good pages along with many bad pages. In the paper, the three filters together removed about 22% of tokens, and the authors kept the thresholds that improved benchmark scores in their ablations.</p>
+        </div>
+      </div>
+    </section>
+    <section class="panel" data-panel="dedup" hidden>
+      <div>
+        <div class="section-title"><h2>Deduplication within each snapshot compared with across all snapshots</h2></div>
+        <p class="lede" style="margin-top:8px">Common Crawl revisits many of the same pages in each snapshot, so the same text appears in many snapshots. The authors first deduplicated across all 96 snapshots, starting from the newest, and models trained on the result scored lower than models trained on data deduplicated within each snapshot.</p>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Interactive simulation</div><h3>Pages kept in each snapshot under each deduplication method</h3></div>
+          <div class="controls"><div class="seg" id="ddSeg" role="group" aria-label="Deduplication method"><button data-mode="within" aria-pressed="true">Within each snapshot</button><button data-mode="across" aria-pressed="false">Across all snapshots</button></div><button class="btn small" id="ddNew">New random crawl</button></div>
+        </div>
+        <div class="viz-body">
+          <div class="stats">
+            <div class="stat"><b id="ddKept"></b><span>pages kept in total</span></div>
+            <div class="stat"><b id="ddHq"></b><span>share of kept pages that are high quality</span></div>
+            <div class="stat"><b id="ddOld"></b><span>pages removed from the oldest snapshot</span></div>
+          </div>
+          <div class="svg-wrap"><svg id="ddSvg" viewBox="0 0 680 240" width="100%" role="img" aria-label="Kept and removed pages in each snapshot"></svg></div>
+          <div class="tok-legend"><span><i class="sw" style="background:var(--blue)"></i> kept, high quality</span><span><i class="sw" style="background:var(--warn)"></i> kept, low quality</span><span><i class="sw std"></i> removed as a duplicate</span></div>
+          <p class="proto-note">The simulation is a simple model written for the demo, and it doesn't use the paper's data. In the model, good pages are revisited in many snapshots, while low quality pages, e.g., spam, appear in only one snapshot.</p>
+          <p class="notice"><b>What to notice:</b> Deduplication across all snapshots runs from the newest snapshot to the oldest. It removes a page from an old snapshot when any newer snapshot has a copy. Good pages are often revisited, so old snapshots lose most of their good pages. The pages left in old snapshots are mostly low quality pages that appeared only once. In the paper, deduplication across all snapshots removed about 90% of a snapshot from 2013, and a model trained on the removed pages scored higher than a model trained on the kept pages.</p>
+        </div>
+      </div>
+    </section>
+    <section class="panel" data-panel="edu" hidden>
+      <div>
+        <div class="section-title"><h2>FineWeb-Edu, a subset picked by an educational quality classifier</h2></div>
+        <p class="lede" style="margin-top:8px">The authors built FineWeb-Edu by scoring a sample of pages with a large language model and then training a small classifier to score every page.</p>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Process diagram</div><h3>How the authors made the educational scores</h3></div>
+        </div>
+        <div class="viz-body">
+          <div class="steps3">
+            <div class="step-card"><span class="eyebrow">Step 1</span><b>Score a sample</b><p>The authors used Llama-3-70B-Instruct to give about 450K FineWeb pages an educational score from 0 to 5. The prompt adds a point for each sign of educational value, e.g., clear explanations at a school level.</p></div>
+            <div class="step-card"><span class="eyebrow">Step 2</span><b>Train a classifier</b><p>The authors trained a small regression model to predict the scores, using embeddings from the Snowflake-arctic-embed-m model as input.</p></div>
+            <div class="step-card"><span class="eyebrow">Step 3</span><b>Score all of FineWeb</b><p>The authors ran the classifier on every FineWeb page and kept pages with a score of 3 or more.</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Interactive threshold</div><h3>Dataset size and example pages at each threshold</h3></div>
+          <div class="controls"><div class="seg" id="eduSeg" role="group" aria-label="Score threshold"></div></div>
+        </div>
+        <div class="viz-body">
+          <div id="eduBar"></div>
+          <div class="edu-list" id="eduList"></div>
+          <p class="proto-note">The example pages and their scores are made up for the demo. The token counts are the paper's numbers.</p>
+          <p class="notice"><b>What to notice:</b> A higher threshold keeps fewer tokens, and the pages it keeps look more like teaching material. The authors report that FineWeb-Edu gives better results than FineWeb on knowledge and reasoning benchmarks, e.g., MMLU and ARC. They released the version with threshold 2 for training runs that need more tokens than FineWeb-Edu has.</p>
+        </div>
+      </div>
+    </section>
+    <section class="panel" data-panel="evidence" hidden>
+      <div>
+        <div class="section-title"><h2>Claims and how well they are supported</h2></div>
+        <p class="lede" style="margin-top:8px">The authors backed each decision with an ablation, which here means training the same small model on two versions of the data and comparing benchmark scores.</p>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Test setup</div><h3>How the authors tested each decision</h3></div>
+        </div>
+        <div class="viz-body">
+          <p class="lede">First, the authors built two versions of the data that differ in one step, e.g., with and without a filter. Second, they trained a model with 1.82B parameters on 28B tokens of each version, using the same settings for both models. Third, they compared the scores on benchmarks that show differences early in training, e.g., HellaSwag, ARC, and MMLU.</p>
+        </div>
+      </div>
+      <div class="claims" id="fwClaims"></div>
+      <div class="split">
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Released</div><h3>What the authors released</h3></div>
+        </div>
+        <div class="viz-body">
+          <ul class="gaps">
+            <li>The FineWeb and FineWeb-Edu datasets, under the ODC-By 1.0 license</li>
+            <li>The processing code, as part of the datatrove library</li>
+            <li>The ablation models and the educational classifier</li>
+            <li>The Llama-3 scores used to train the classifier</li>
+          </ul>
+        </div>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Missing information</div><h3>Limits of the evidence</h3></div>
+        </div>
+        <div class="viz-body">
+          <ul class="gaps">
+            <li>The datasets cover English only.</li>
+            <li>The ablations use small models and short training runs, so the effects may differ for large models that train for longer.</li>
+            <li>The benchmarks are mostly short multiple choice tasks, so the decisions may favor pages with facts over other useful text, e.g., dialogue or code.</li>
+          </ul>
+        </div>
+      </div>
+      </div>
+    </section>
+  </div>
+  <div class="doc" data-doc="flash" hidden>
+    <div class="paper-head">
+      <div class="eyebrow">Systems paper, <a href="https://arxiv.org/abs/2205.14135" target="_blank" rel="noopener">arXiv 2205.14135</a>, May 2022, Stanford University and University at Buffalo</div>
+      <h1>FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness</h1>
+      <p class="thesis">FlashAttention computes exact attention faster by reading and writing the GPU's main memory less often. Standard attention writes the full N×N score matrix to the GPU's main memory, called HBM, and reads it back. For long sequences, the memory traffic takes more time than the arithmetic. FlashAttention splits the inputs into tiles that fit in the small, fast on-chip memory, called SRAM. It combines the tiles one at a time with an online softmax, so <span class="mark">the N×N matrix is never stored in HBM</span>. The paper also <span class="mark">counts HBM reads and writes to analyze attention</span>, and it proves that FlashAttention needs fewer of them than standard attention.</p>
+      <div class="specs">
+        <div class="spec"><b>7.6×</b><span>faster attention on GPT-2</span></div>
+        <div class="spec"><b>3×</b><span>faster GPT-2 training</span></div>
+        <div class="spec"><b>15%</b><span>faster BERT-large training</span></div>
+        <div class="spec"><b>64K</b><span>longest sequence tested</span></div>
+        <div class="spec"><b>Exact</b><span>same output as standard attention</span></div>
+        <div class="spec"><b>O(N)</b><span>extra memory for N tokens</span></div>
+      </div>
+      <p class="ptype-note"><span class="ptype">Systems paper</span> For systems papers, UnpackAI adds tabs for the bottleneck that the paper addresses, the algorithm, and the measured performance.</p>
+      <div class="legend">
+        <span><i class="sw novel"></i>New in this paper</span>
+        <span><i class="sw inh"></i>Inherited from earlier work</span>
+        <span><i class="sw std"></i>Standard practice</span>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Dossier sections">
+      <a class="tab" role="tab" href="#flash-overview" data-tab="overview">Overview <span class="count">6</span></a>
+      <a class="tab" role="tab" href="#flash-bottleneck" data-tab="bottleneck">Bottleneck</a>
+      <a class="tab" role="tab" href="#flash-algorithm" data-tab="algorithm">Algorithm</a>
+      <a class="tab" role="tab" href="#flash-performance" data-tab="performance">Performance</a>
+      <a class="tab" role="tab" href="#flash-evidence" data-tab="evidence">Evidence</a>
+    </nav>
+    <section class="panel" data-panel="overview">
+      <div>
+        <div class="section-title"><h2>New ideas in the paper</h2><span class="eyebrow">Summary table</span></div>
+        <p class="lede" style="margin-top:8px">Systems papers usually keep the model's math the same and change how the hardware runs it. UnpackAI lists each technique with the approach it replaces and the reason it is faster.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Technique</th><th>Status</th><th>What it replaces</th><th>Why it is faster</th><th>Paper section</th></tr></thead>
+          <tbody id="faRows"></tbody>
+        </table>
+      </div>
+      <div class="split">
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">HBM accesses</div><h3>Number of HBM reads and writes for each method</h3></div>
+        </div>
+        <div class="viz-body">
+          <div class="readout">
+            <div><b>Θ(Nd + N²)</b><span>standard attention</span></div>
+            <div><b>Θ(N²d²/M)</b><span>FlashAttention</span></div>
+          </div>
+          <p class="notice">N is the sequence length, d is the head size, and M is the SRAM size. The Θ notation means the count grows in proportion to the expression. For typical values, d² is much smaller than M. For example, a head size of 64 gives d² = 4,096, while M is about 100K numbers on an A100.</p>
+        </div>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Reading order</div><h3>Suggested order for reading the dossier</h3></div>
+        </div>
+        <div class="viz-body">
+          <ol class="gaps" style="padding-left:20px">
+            <li>The <a href="#flash-bottleneck">memory hierarchy figure</a> shows how much faster SRAM is than HBM.</li>
+            <li>The <a href="#flash-bottleneck">roofline estimate</a> compares memory time with arithmetic time for standard attention.</li>
+            <li>The <a href="#flash-algorithm">tiling animation</a> and the online softmax example show how FlashAttention works one tile at a time.</li>
+            <li>The <a href="#flash-performance">Performance tab</a> lists each measured speedup with its baseline.</li>
+          </ol>
+        </div>
+      </div>
+      </div>
+    </section>
+    <section class="panel" data-panel="bottleneck" hidden>
+      <div>
+        <div class="section-title"><h2>Why standard attention is limited by memory traffic</h2></div>
+        <p class="lede" style="margin-top:8px">A GPU kernel is limited either by arithmetic or by memory traffic, and the slower of the two sets its run time. The paper shows that for attention, memory traffic is the limit.</p>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Figure 1 of the paper</div><h3>Memory hierarchy of an A100 GPU</h3></div>
+        </div>
+        <div class="viz-body">
+          <div id="faMem" style="display:grid;gap:12px"></div>
+          <p class="proto-note">The bar length uses a log scale for bandwidth.</p>
+          <p class="notice"><b>What to notice:</b> SRAM is more than 10 times faster than HBM, but it holds about 2,000 times less data. Standard attention keeps its N×N matrices in HBM, because they don't fit in SRAM for long sequences.</p>
+        </div>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Interactive calculator</div><h3>Roofline estimate for standard attention on one head</h3></div>
+          <div class="controls"><span class="eyebrow">N</span><div class="seg" id="rfN" role="group" aria-label="Sequence length"></div><span class="eyebrow">d</span><div class="seg" id="rfD" role="group" aria-label="Head size"></div></div>
+        </div>
+        <div class="viz-body">
+          <div class="table-wrap"><table class="small" id="rfTable"></table></div>
+          <p class="proto-note">A roofline estimate compares the time to move the data with the time to do the arithmetic, and the larger time is the limit. The estimate uses the A100's peak rates of 312 TFLOPS (trillion floating point operations per second) for FP16 matrix math and 1.5 TB/s for HBM. It counts 2 bytes per number, and real kernels run below the peak rates, so the times are lower bounds.</p>
+          <p class="notice"><b>What to notice:</b> The softmax step reads and writes the whole N×N matrix but does very little arithmetic on it. For every step and every setting in the calculator, moving the data takes longer than the arithmetic, so standard attention is limited by memory traffic.</p>
+        </div>
+      </div>
+    </section>
+    <section class="panel" data-panel="algorithm" hidden>
+      <div>
+        <div class="section-title"><h2>How FlashAttention computes attention one tile at a time</h2></div>
+        <p class="lede" style="margin-top:8px">FlashAttention loads one block of K and V into SRAM and then loops over the blocks of Q. For each pair of blocks, it computes the scores, updates the softmax statistics, and adds to the output, so it never writes a full N×N matrix to HBM.</p>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Interactive animation</div><h3>Loop over the tiles of the N×N score matrix</h3></div>
+          <div class="controls"><button class="btn small primary" id="faPlay">Play</button><button class="btn small" id="faStep">Step</button><button class="btn small" id="faReset">Reset</button></div>
+        </div>
+        <div class="viz-body">
+          <div class="tilewrap">
+            <div>
+              <div class="tile-top">K and V blocks, outer loop →</div>
+              <div class="tile-row"><div class="tile-left">Q blocks, inner loop</div><div class="tilegrid" id="faGrid"></div></div>
+            </div>
+            <div class="detail" id="faTileDetail" aria-live="polite"></div>
+          </div>
+          <p class="notice"><b>What to notice:</b> Each block of K and V is read from HBM once, while the blocks of Q and O are read once for every block of K and V. Each tile of scores exists only in SRAM while the kernel uses it, so the kernel never writes an N×N matrix to HBM.</p>
+        </div>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Interactive example</div><h3>Online softmax for one row of scores</h3></div>
+          <div class="controls"><button class="btn small" id="osPrev" aria-label="Previous block">←</button><button class="btn small" id="osNext" aria-label="Next block">→</button></div>
+        </div>
+        <div class="viz-body">
+          <p class="proto-note">Each position has a score s and a value v, and the output is the softmax average of the values. The kernel sees the scores in blocks of 2.</p>
+          <div class="tokens" id="osTokens"></div>
+          <p class="mono" style="font-size:12.5px;color:var(--muted)">m_new = max(m, block scores), ℓ_new = e^(m - m_new) × ℓ + Σ e^(s - m_new), o_new = (e^(m - m_new) × ℓ × o + Σ e^(s - m_new) × v) / ℓ_new</p>
+          <div class="table-wrap"><table class="small" id="osTable"></table></div>
+          <p class="mono" style="font-size:13px" id="osCheck"></p>
+          <p class="notice"><b>What to notice:</b> The running output after each block is the correct softmax average of the scores seen so far. When a new block has a larger score, the factor e^(m - m_new) rescales the earlier sum and output. As a result, the output after the last block equals the standard softmax over the whole row.</p>
+        </div>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Interactive calculator</div><h3>HBM reads and writes for standard attention and FlashAttention</h3></div>
+          <div class="controls"><span class="eyebrow">N</span><div class="seg" id="tfN" role="group" aria-label="Sequence length"></div><span class="eyebrow">d</span><div class="seg" id="tfD" role="group" aria-label="Head size"></div><span class="eyebrow">SRAM</span><div class="seg" id="tfM" role="group" aria-label="SRAM size"></div></div>
+        </div>
+        <div class="viz-body">
+          <div id="tfBars" style="display:grid;gap:10px"></div>
+          <p class="proto-note">The FlashAttention count follows Algorithm 1 of the paper, with block sizes B_c = M/(4d) and B_r = min(B_c, d), where M is the SRAM size in numbers. Both counts cover one head in FP16, and the FlashAttention count includes the reads and writes of the row statistics.</p>
+          <p class="notice"><b>What to notice:</b> The FlashAttention traffic grows with N²d²/M, so a larger SRAM or a smaller head size lowers it. FlashAttention does about the same arithmetic as standard attention in the forward pass, so the time it saves comes from the lower traffic.</p>
+        </div>
+      </div>
+    </section>
+    <section class="panel" data-panel="performance" hidden>
+      <div>
+        <div class="section-title"><h2>Measured speedups and quality gains</h2></div>
+        <p class="lede" style="margin-top:8px">The paper reports speedups against different baselines, so each row names its baseline. The main results were measured on A100 GPUs.</p>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Results from the paper</div><h3>Speedup for each workload</h3></div>
+        </div>
+        <div class="viz-body">
+          <div class="table-wrap"><table class="small" id="faSpeed"></table></div>
+          <p class="notice"><b>What to notice:</b> The largest speedup is for the attention computation alone. Speedups for full training are smaller, because the rest of the model, e.g., the MLP layers, runs at the same speed as before. The rows use different baselines, so compare them with care.</p>
+        </div>
+      </div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Results from the paper</div><h3>Quality gains from longer sequences</h3></div>
+        </div>
+        <div class="viz-body">
+          <div class="stats">
+            <div class="stat"><b>0.7</b><span>better perplexity on GPT-2</span></div>
+            <div class="stat"><b>6.4 points</b><span>gain on long document classification</span></div>
+            <div class="stat"><b>61.4%</b><span>accuracy on Path-X, 16K tokens</span></div>
+            <div class="stat"><b>63.1%</b><span>accuracy on Path-256, 64K tokens</span></div>
+          </div>
+          <p class="notice"><b>What to notice:</b> Faster attention with less memory let the authors train with longer sequences in the same time. Path-X and Path-256 are tasks where earlier Transformers scored no better than chance, which is 50%. FlashAttention models were the first Transformers to do better than chance on both tasks.</p>
+        </div>
+      </div>
+    </section>
+    <section class="panel" data-panel="evidence" hidden>
+      <div>
+        <div class="section-title"><h2>Claims and how well they are supported</h2></div>
+        <p class="lede" style="margin-top:8px">Systems papers support their claims with proofs, with measured run times, or with both. UnpackAI tags each claim with the kind of evidence and names the baseline.</p>
+      </div>
+      <div class="claims" id="faClaims"></div>
+      <div class="viz">
+        <div class="viz-head">
+          <div><div class="eyebrow">Missing information</div><h3>Limits of the evidence</h3></div>
+        </div>
+        <div class="viz-body">
+          <ul class="gaps">
+            <li>The analysis covers the memory hierarchy of one GPU, and it doesn't cover attention that is split across several GPUs.</li>
+            <li>The block sizes are chosen for the A100, so speedups on GPUs with less SRAM can be smaller.</li>
+            <li>A follow-up paper, FlashAttention-2 (2023), changed how the work is split across GPU thread blocks. It reported about twice the speed of the first version, which suggests that the first version didn't use the GPU fully.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
   </main>
 </div>
 
@@ -631,14 +1091,15 @@ function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTi
 
 /* ---------------- library ---------------- */
 const LIB = [
-  {id:"dsv3", title:"DeepSeek-V3 Technical Report", org:"DeepSeek-AI", date:"Dec 2024", kind:"Paper", tags:["Architecture","Training","Systems"], ready:true},
-  {id:"fineweb", title:"The FineWeb Datasets", org:"Hugging Face", date:"Jun 2024", kind:"Paper", tags:["Data"], ready:true},
-  {id:"r1", title:"DeepSeek-R1: Incentivizing Reasoning via RL", org:"DeepSeek-AI", date:"Jan 2025", kind:"Paper", tags:["Training"], ready:true},
-  {id:"mamba", title:"Mamba: Linear-Time Sequence Modeling with Selective State Spaces", org:"CMU and Princeton", date:"Dec 2023", kind:"Paper", tags:["Architecture"], ready:true},
-  {id:"blt", title:"Byte Latent Transformer", org:"Meta FAIR", date:"Dec 2024", kind:"Paper", tags:["Architecture"], ready:true},
-  {id:"dclm", title:"DataComp-LM", org:"DCLM team", date:"Jun 2024", kind:"Paper", tags:["Data"], ready:true},
-  {id:"muon", title:"Muon is Scalable for LLM Training", org:"Moonshot AI", date:"Feb 2025", kind:"Paper", tags:["Training"], ready:false},
+  {id:"dsv3", title:"DeepSeek-V3 Technical Report", org:"DeepSeek-AI", date:"Dec 2024", tags:["Architecture","Training","Systems"], ready:true, built:true},
+  {id:"fineweb", title:"The FineWeb Datasets", org:"Hugging Face", date:"Jun 2024", tags:["Data"], ready:true, built:true},
+  {id:"flash", title:"FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness", org:"Stanford University", date:"May 2022", tags:["Systems"], ready:true, built:true},
+  {id:"r1", title:"DeepSeek-R1: Incentivizing Reasoning via RL", org:"DeepSeek-AI", date:"Jan 2025", tags:["Training"], ready:true},
+  {id:"mamba", title:"Mamba: Linear-Time Sequence Modeling with Selective State Spaces", org:"CMU and Princeton", date:"Dec 2023", tags:["Architecture"], ready:true},
+  {id:"dclm", title:"DataComp-LM", org:"DCLM team", date:"Jun 2024", tags:["Data"], ready:true},
+  {id:"muon", title:"Muon is Scalable for LLM Training", org:"Moonshot AI", date:"Feb 2025", tags:["Training"], ready:false},
 ];
+let currentDoc = "dsv3";
 const AREAS = ["All","Architecture","Data","Training","Systems"];
 let libFilter = "All";
 function renderChips(){
@@ -651,10 +1112,10 @@ function renderLib(){
   $("#libCount").textContent=items.length+" items";
   items.forEach(p=>{
     const li=document.createElement("li"), b=document.createElement("button");
-    b.className="lib-item"; b.setAttribute("aria-current",p.id==="dsv3");
+    b.className="lib-item"; b.setAttribute("aria-current",p.id===currentDoc);
     b.innerHTML=`<div class="lib-meta"><span>${p.org}, ${p.date}</span><span class="status ${p.ready?"ready":"queued"}">${p.ready?"Unpacked":"In queue"}</span></div>
       <div class="lib-title">${p.title}</div><div class="tags">${p.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>`;
-    b.onclick=()=>{ if(p.id!=="dsv3") toast(`The prototype only has a dossier for DeepSeek-V3. The dossier for "${p.title}" would open here.`); };
+    b.onclick=()=>{ if(p.built) location.hash="#"+p.id+"-overview"; else toast(`The prototype has dossiers for DeepSeek-V3, FineWeb, and FlashAttention. The dossier for "${p.title}" would open here.`); };
     li.appendChild(b); ul.appendChild(li);
   });
 }
@@ -672,24 +1133,38 @@ $("#unpackForm").addEventListener("submit",e=>{
   tick();
 });
 
-/* ---------------- tabs ---------------- */
-const TABS=["overview","architecture","data","training","evidence"];
-function showTab(){
-  let h=location.hash.replace("#",""); if(!TABS.includes(h)) h="overview";
-  $$(".tab").forEach(t=>t.setAttribute("aria-selected",t.dataset.tab===h));
-  $$("[data-panel]").forEach(p=>p.hidden=p.dataset.panel!==h);
+/* ---------------- routing across dossiers ---------------- */
+const DOCS={dsv3:["overview","architecture","data","training","evidence"],fineweb:["overview","pipeline","filters","dedup","edu","evidence"],flash:["overview","bottleneck","algorithm","performance","evidence"]};
+function parseHash(){
+  const h=location.hash.replace("#",""), m=h.match(/^(dsv3|fineweb|flash)-([a-z]+)$/);
+  if(m && DOCS[m[1]].includes(m[2])) return [m[1],m[2]];
+  if(DOCS.dsv3.includes(h)) return ["dsv3",h];
+  return ["dsv3","overview"];
 }
-window.addEventListener("hashchange",()=>{showTab(); const tabs=$("#tabs"); if(tabs.getBoundingClientRect().top<0) tabs.scrollIntoView({block:"start"});});
+function showTab(){
+  const [d,t]=parseHash(), changed=d!==currentDoc; currentDoc=d;
+  $$(".doc").forEach(x=>x.hidden=x.dataset.doc!==d);
+  const doc=$(`.doc[data-doc="${d}"]`);
+  $$(".tab",doc).forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===t));
+  $$("[data-panel]",doc).forEach(x=>x.hidden=x.dataset.panel!==t);
+  renderLib();
+  return {doc,changed};
+}
+window.addEventListener("hashchange",()=>{
+  const {doc,changed}=showTab();
+  if(changed){ $("#dossier").scrollIntoView({block:"start"}); return; }
+  const nav=$(".tabs",doc); if(nav.getBoundingClientRect().top<0) nav.scrollIntoView({block:"start"});
+});
 showTab();
 
 /* ---------------- overview ---------------- */
 const NOVEL=[
-  {what:"Load balancing without an auxiliary loss", status:"novel", area:"Architecture", replaces:"An extra balancing term in the loss, which works against the main language modeling loss", why:"The router adds a bias to each expert's score when it picks experts, but the bias does not change the expert's output weight. As a result, balancing does not need a loss term that can lower quality.", where:"§2.1.2", link:"#architecture"},
-  {what:"Multi-token prediction (depth 1)", status:"novel", area:"Objective", replaces:"A loss on the next token only", why:"Each position gives two training targets instead of one. The extra module can also be used for speculative decoding, where the model drafts a second token and checks it in the next step.", where:"§2.2", link:"#architecture"},
-  {what:"FP8 mixed precision training at large scale", status:"novel", area:"Systems", replaces:"Training in the 16-bit BF16 format", why:"Each small tile of numbers gets its own scale factor, so one very large value only affects its own tile. Sums are added up in higher precision, so rounding errors don't build up.", where:"§3.3", link:"#training"},
-  {what:"DualPipe pipeline parallelism", status:"novel", area:"Systems", replaces:"Standard pipeline schedules such as 1F1B (one forward pass, then one backward pass)", why:"DualPipe sends tokens between experts on different machines at the same time as it runs computation, so the GPUs spend less time idle.", where:"§3.2.1", link:"#training"},
-  {what:"Multi-head Latent Attention (MLA)", status:"inh", area:"Architecture", replaces:"Standard multi-head attention", why:"MLA stores one small compressed vector per token instead of full keys and values, so the KV cache is much smaller. DeepSeek-V2 introduced MLA.", where:"§2.1.1", link:"#architecture"},
-  {what:"Reasoning data distilled from R1 models", status:"novel", area:"Post-training", replaces:"Supervised fine-tuning (SFT) only on answers that people wrote", why:"The authors generate long step-by-step solutions with an R1 reasoning model and filter them. They then use the filtered solutions for SFT, followed by reinforcement learning with GRPO.", where:"§5.1 to 5.2", link:"#training"},
+  {what:"Load balancing without an auxiliary loss", status:"novel", area:"Architecture", replaces:"An extra balancing term in the loss, which works against the main language modeling loss", why:"The router adds a bias to each expert's score when it picks experts, but the bias does not change the expert's output weight. As a result, balancing does not need a loss term that can lower quality.", where:"§2.1.2", link:"#dsv3-architecture"},
+  {what:"Multi-token prediction (depth 1)", status:"novel", area:"Objective", replaces:"A loss on the next token only", why:"Each position gives two training targets instead of one. The extra module can also be used for speculative decoding, where the model drafts a second token and checks it in the next step.", where:"§2.2", link:"#dsv3-architecture"},
+  {what:"FP8 mixed precision training at large scale", status:"novel", area:"Systems", replaces:"Training in the 16-bit BF16 format", why:"Each small tile of numbers gets its own scale factor, so one very large value only affects its own tile. Sums are added up in higher precision, so rounding errors don't build up.", where:"§3.3", link:"#dsv3-training"},
+  {what:"DualPipe pipeline parallelism", status:"novel", area:"Systems", replaces:"Standard pipeline schedules such as 1F1B (one forward pass, then one backward pass)", why:"DualPipe sends tokens between experts on different machines at the same time as it runs computation, so the GPUs spend less time idle.", where:"§3.2.1", link:"#dsv3-training"},
+  {what:"Multi-head Latent Attention (MLA)", status:"inh", area:"Architecture", replaces:"Standard multi-head attention", why:"MLA stores one small compressed vector per token instead of full keys and values, so the KV cache is much smaller. DeepSeek-V2 introduced MLA.", where:"§2.1.1", link:"#dsv3-architecture"},
+  {what:"Reasoning data distilled from R1 models", status:"novel", area:"Post-training", replaces:"Supervised fine-tuning (SFT) only on answers that people wrote", why:"The authors generate long step-by-step solutions with an R1 reasoning model and filter them. They then use the filtered solutions for SFT, followed by reinforcement learning with GRPO.", where:"§5.1 to 5.2", link:"#dsv3-training"},
 ];
 const label={novel:"New",inh:"Inherited",std:"Standard"};
 $("#noveltyRows").innerHTML=NOVEL.map(n=>`<tr><td class="what"><a href="${n.link}">${n.what}</a></td><td><span class="pill ${n.status}">${label[n.status]}</span></td><td>${n.replaces}</td><td>${n.why}</td><td class="sec">${n.where}</td></tr>`).join("");
@@ -1028,6 +1503,277 @@ function drawQA(){
   $$("#qs .chip").forEach(b=>b.onclick=()=>{qaIdx=+b.dataset.i;drawQA()});
 }
 drawQA();
+/* ================= shared helpers for the extra dossiers ================= */
+function noveltyRows(rows){return rows.map(n=>`<tr><td class="what"><a href="${n.link}">${n.what}</a></td><td><span class="pill ${n.status}">${label[n.status]}</span></td><td>${n.replaces}</td><td>${n.why}</td><td class="sec">${n.where}</td></tr>`).join("")}
+function claimsHTML(rows){return rows.map(c=>`<div class="claim"><div><h4>${c.h}</h4><p>${c.p}</p></div><div class="right"><span class="pill ${c.c}">${c.ev}</span><span class="sec">${c.w||""}</span></div></div>`).join("")}
+function detailHTML(b){return `<span class="pill ${b.s}">${label[b.s]}</span><h4>${b.t}</h4><p>${b.p}</p><p class="kv">${b.kv}</p>`}
+function makeSeg(el,opts,cur,onPick){
+  el.innerHTML=opts.map(o=>`<button data-v="${o.v}" aria-pressed="${String(o.v)===String(cur)}">${o.t}</button>`).join("");
+  $$("button",el).forEach(b=>b.onclick=()=>{$$("button",el).forEach(x=>x.setAttribute("aria-pressed",x===b));onPick(b.dataset.v);});
+}
+const kfmt=n=>n>=1024?(n/1024)+"K":String(n);
+
+/* ================= FineWeb dossier ================= */
+const FW_NOVEL=[
+  {what:"Deduplicating each snapshot on its own",status:"novel",replaces:"Deduplicating across the whole crawl at once",why:"Deduplicating across all snapshots removed most pages from old snapshots, and the pages that were kept were of lower quality than the pages that were removed. Deduplicating within each snapshot gave better benchmark scores.",where:"Deduplication",link:"#fineweb-dedup"},
+  {what:"New heuristic filters chosen from page statistics",status:"novel",replaces:"Reusing filters from earlier datasets without changes",why:"The authors compared page statistics between a higher quality and a lower quality version of the same data. They turned the statistics that differed most into three filters. Together, the filters removed about 22% of tokens and raised benchmark scores.",where:"Filters",link:"#fineweb-filters"},
+  {what:"Educational quality classifier",status:"novel",replaces:"Quality classifiers that compare web pages with reference text, e.g., Wikipedia",why:"The authors used Llama-3-70B-Instruct to score about 450K pages for educational value, and they trained a small classifier on the scores. Keeping pages with a score of 3 or more gave 1.3T tokens and higher scores on knowledge and reasoning benchmarks.",where:"FineWeb-Edu",link:"#fineweb-edu"},
+  {what:"Text extraction from raw HTML with trafilatura",status:"inh",replaces:"The text files that Common Crawl extracts itself, called WET files",why:"Trafilatura removes more menus and other boilerplate than the WET extraction, and models trained on its output scored higher. RefinedWeb used the same approach before.",where:"Pipeline",link:"#fineweb-pipeline"},
+  {what:"C4 and Gopher quality filters",status:"inh",replaces:"Filtering by language and deduplication alone",why:"The authors kept the Gopher filters and most of the C4 filters. They dropped the C4 filter on terminal punctuation, because it removed about 30% of tokens.",where:"Pipeline",link:"#fineweb-pipeline"},
+];
+$("#fwRows").innerHTML=noveltyRows(FW_NOVEL);
+
+(function fwSizes(){
+  const svg=$("#fwSizes"), rows=[["FineWeb",15,"var(--rule-strong)"],["FineWeb-Edu, score 2 or more",5.4,"var(--inh)"],["FineWeb-Edu, score 3 or more",1.3,"var(--hl)"]];
+  const x0=200, W=180;
+  rows.forEach((r,i)=>{
+    const y=10+i*40;
+    svg.appendChild(svgEl("text",{x:0,y:y+16,style:"font-family:var(--f-ui);font-size:12.5px;fill:var(--ink)"},r[0]));
+    svg.appendChild(svgEl("rect",{x:x0,y,width:W,height:24,rx:3,fill:"var(--paper)"}));
+    svg.appendChild(svgEl("rect",{x:x0,y,width:Math.max(2,r[1]/15*W),height:24,rx:3,fill:r[2]}));
+    svg.appendChild(svgEl("text",{x:x0+W+8,y:y+16,style:"fill:var(--ink)"},r[1]+"T tokens"));
+  });
+})();
+
+const FW_STAGES={
+  url:{t:"URL filtering",s:"std",p:"The pipeline removes pages whose URL is on a blocklist of adult websites. It also removes pages whose URL contains words from a list of adult terms.",kv:"standard practice"},
+  extract:{t:"Text extraction with trafilatura",s:"inh",p:"Common Crawl publishes the raw HTML of each page in WARC files and extracted text in WET files. The pipeline extracts the main text from the raw HTML with the trafilatura library, because the WET text keeps more menus and other boilerplate. Models trained on the trafilatura text scored higher in the authors' ablations.",kv:"same approach as RefinedWeb"},
+  lang:{t:"Language filter",s:"std",p:"A fastText language classifier gives each page a score for English. The pipeline keeps pages with an English score of 0.65 or more.",kv:"fastText, threshold 0.65"},
+  gopher:{t:"Gopher quality and repetition filters",s:"inh",p:"The Gopher filters remove pages with many repeated lines or repeated word sequences. They also remove pages with unusual statistics, e.g., very few common words like 'the' and 'and', which often means the page is a list of keywords.",kv:"from the Gopher paper (Rae et al., 2021)"},
+  dedup:{t:"MinHash deduplication within each snapshot",s:"novel",p:"MinHash estimates how many 5-word sequences two pages share, so it can find near-duplicate pages quickly. The pipeline removes a page when it matches another page with about 75% similarity or more. The pipeline compares pages only within the same snapshot, and the Deduplication tab explains why.",kv:"112 hash functions in 14 buckets of 8. MinHash is standard, and running it within each snapshot is the new choice."},
+  c4:{t:"C4 filters",s:"inh",p:"The C4 filters remove lines that mention javascript or cookie policies, and they remove pages that contain 'lorem ipsum' or a curly bracket. The pipeline skips the C4 filter that removes every line without terminal punctuation, because the punctuation filter alone removed about 30% of tokens.",kv:"from the C4 dataset (Raffel et al., 2020)"},
+  custom:{t:"New heuristic filters",s:"novel",p:"The new filters remove pages with few lines that end in punctuation, pages with many repeated lines, and pages with many very short lines. Together they removed about 22% of tokens, and the Filters tab lets you try them on example pages.",kv:"thresholds 0.12, 0.1, and 0.67"},
+  pii:{t:"Email and IP address removal",s:"std",p:"The pipeline replaces email addresses and public IP addresses with placeholder text, so the dataset doesn't publish them.",kv:"standard practice"},
+  out:{t:"FineWeb",s:"std",p:"The output of all the steps is FineWeb, with 15T tokens from 96 snapshots.",kv:"license ODC-By 1.0"},
+  edu:{t:"Educational quality classifier",s:"novel",p:"A classifier gives every FineWeb page an educational score from 0 to 5. The FineWeb-Edu tab explains how the authors trained the classifier.",kv:"trained on scores from Llama-3-70B-Instruct"},
+  eduout:{t:"FineWeb-Edu",s:"std",p:"FineWeb-Edu has 1.3T tokens from pages with an educational score of 3 or more. The authors also released a version with a threshold of 2, which has 5.4T tokens.",kv:"license ODC-By 1.0"},
+};
+function fwShow(id){$$("#fwPipe .blk").forEach(x=>x.setAttribute("aria-pressed",x.dataset.blk===id));$("#fwPipeDetail").innerHTML=detailHTML(FW_STAGES[id]);}
+$$("#fwPipe .blk").forEach(b=>b.addEventListener("click",()=>fwShow(b.dataset.blk)));
+fwShow("dedup");
+
+const FW_PAGES=[
+  {t:"News article",x:`The city council voted on Tuesday to extend the library's opening hours.
+The change starts next month and adds four hours on weekends.
+Council members said the cost will come from the existing culture budget.
+Residents had asked for longer hours in a survey last spring.`},
+  {t:"Site menu",x:`Home
+About us
+Products
+Services
+Contact
+Login
+Sign up
+Privacy policy`},
+  {t:"Forum page",x:`Re: Best way to learn Python?
+Posted by user123
+Try the official tutorial first, it covers the basics well.
+Posted by user123
+Thanks, I will start there this weekend.
+Posted by user123
+Click here to reply
+Click here to reply`},
+  {t:"Product grid",x:`Blue cotton shirt, size M
+$19.99
+Add to cart
+Blue cotton shirt, size L
+$19.99
+Add to cart
+Grey wool sweater, size M
+$39.99
+Add to cart`},
+  {t:"Recipe",x:`Heat the oven to 200 degrees and line a tray with baking paper.
+Cut the potatoes into thin slices and toss them with olive oil.
+Spread the slices on the tray in a single layer.
+Bake for 25 minutes, turning the slices once halfway through.
+Season with salt and serve while they are still warm.`},
+  {t:"Poem",x:`the river bends at dawn
+a heron waits in grey
+the reeds lean into wind
+and nothing moves today`},
+];
+const END_PUNCT=/[.!?"')\]:;]$/;
+function pageStats(x){
+  const lines=x.split("\n").map(l=>l.trim()).filter(Boolean), n=lines.length, seen=new Set();
+  let dup=0,tot=0;
+  lines.forEach(l=>{tot+=l.length; if(seen.has(l)) dup+=l.length; else seen.add(l);});
+  return {punct:lines.filter(l=>END_PUNCT.test(l)).length/n, dup:dup/tot, short:lines.filter(l=>l.length<30).length/n};
+}
+function drawFilters(){
+  const t1=+$("#fwT1").value, t2=+$("#fwT2").value, t3=+$("#fwT3").value;
+  $("#fwT1v").textContent=t1.toFixed(2); $("#fwT2v").textContent=t2.toFixed(2); $("#fwT3v").textContent=t3.toFixed(2);
+  let kept=0;
+  $("#fwPages").innerHTML=FW_PAGES.map(pg=>{
+    const st=pageStats(pg.x), f1=st.punct<=t1, f2=st.dup>=t2, f3=st.short>=t3, rm=f1||f2||f3;
+    if(!rm) kept++;
+    return `<div class="page-card${rm?" removed":""}"><div class="page-top"><b>${pg.t}</b><span class="pill ${rm?"warn":"ok"}">${rm?"Removed":"Kept"}</span></div>
+      <pre class="code page-text">${esc(pg.x)}</pre>
+      <div class="page-stats"><span class="${f1?"fail":""}">Lines ending in punctuation <b class="mono">${st.punct.toFixed(2)}</b></span><span class="${f2?"fail":""}">Characters in repeated lines <b class="mono">${st.dup.toFixed(2)}</b></span><span class="${f3?"fail":""}">Lines under 30 characters <b class="mono">${st.short.toFixed(2)}</b></span></div></div>`;
+  }).join("");
+  $("#fwKept").textContent=`${kept} of ${FW_PAGES.length}`;
+}
+["#fwT1","#fwT2","#fwT3"].forEach(id=>$(id).addEventListener("input",drawFilters));
+$("#fwReset").onclick=()=>{$("#fwT1").value=0.12;$("#fwT2").value=0.1;$("#fwT3").value=0.67;drawFilters();};
+drawFilters();
+
+const DD={mode:"within",seed:4};
+function ddRun(){
+  const rr=mulberry32(DD.seed), S=12, HQ=260, P=0.38, LQ=45, LQDUP=0.3, snaps=[];
+  let lqId=100000;
+  for(let k=0;k<S;k++){
+    const pages=[];
+    for(let h=0;h<HQ;h++) if(rr()<P) pages.push({id:h,hq:true});
+    const ids=[];
+    for(let q=0;q<LQ;q++){ if(ids.length&&rr()<LQDUP) ids.push(ids[Math.floor(rr()*ids.length)]); else ids.push(lqId++); }
+    ids.forEach(id=>pages.push({id,hq:false}));
+    snaps.push(pages);
+  }
+  const out=new Array(S), global=new Set(), order=DD.mode==="across"?[...Array(S).keys()].reverse():[...Array(S).keys()];
+  for(const k of order){
+    const seen=DD.mode==="across"?global:new Set(); let kh=0,kl=0,rm=0;
+    for(const pg of snaps[k]){ if(seen.has(pg.id)) rm++; else { seen.add(pg.id); pg.hq?kh++:kl++; } }
+    out[k]={kh,kl,rm};
+  }
+  return out;
+}
+function drawDedup(){
+  const res=ddRun(), svg=$("#ddSvg"); svg.innerHTML="";
+  const x0=46, W=620, base=200, top=14, S=res.length, bw=W/S, ymax=Math.max(...res.map(r=>r.kh+r.kl+r.rm));
+  const sc=v=>(v/ymax)*(base-top);
+  [0,50,100,150].filter(v=>v<=ymax).forEach(v=>{svg.appendChild(svgEl("line",{x1:x0,x2:x0+W,y1:base-sc(v),y2:base-sc(v),stroke:"var(--rule)"}));svg.appendChild(svgEl("text",{x:x0-6,y:base-sc(v)+4,"text-anchor":"end"},v))});
+  res.forEach((r,k)=>{
+    const x=x0+k*bw+4, w=bw-8; let y=base;
+    [[r.kh,"var(--blue)"],[r.kl,"var(--warn)"],[r.rm,"var(--std)"]].forEach(([v,f])=>{ if(!v) return; svg.appendChild(svgEl("rect",{x,y:y-sc(v),width:w,height:sc(v),fill:f,stroke:f==="var(--std)"?"var(--rule-strong)":"none"})); y-=sc(v); });
+    svg.appendChild(svgEl("text",{x:x+w/2,y:base+14,"text-anchor":"middle"},"S"+(k+1)));
+  });
+  svg.appendChild(svgEl("text",{x:x0,y:base+30},"oldest snapshot"));
+  svg.appendChild(svgEl("text",{x:x0+W,y:base+30,"text-anchor":"end"},"newest snapshot"));
+  const kh=res.reduce((a,r)=>a+r.kh,0), kl=res.reduce((a,r)=>a+r.kl,0), o=res[0];
+  $("#ddKept").textContent=fmt(kh+kl);
+  $("#ddHq").textContent=Math.round(kh/(kh+kl)*100)+"%";
+  $("#ddOld").textContent=Math.round(o.rm/(o.kh+o.kl+o.rm)*100)+"%";
+}
+$$("#ddSeg button").forEach(b=>b.onclick=()=>{DD.mode=b.dataset.mode;$$("#ddSeg button").forEach(x=>x.setAttribute("aria-pressed",x===b));drawDedup();});
+$("#ddNew").onclick=()=>{DD.seed++;drawDedup();};
+drawDedup();
+
+const EDU_LEVELS=[{v:0,t:"Score 0 or more",tok:15,n:"all of FineWeb"},{v:2,t:"Score 2 or more",tok:5.4,n:"the FineWeb-Edu version with threshold 2"},{v:3,t:"Score 3 or more",tok:1.3,n:"FineWeb-Edu"}];
+const EDU_PAGES=[["A product page for a phone case",0],["A celebrity news article",0],["A company's About page",1],["A forum answer that explains compound interest",2],["A blog post that explains how vaccines work",3],["A tutorial on Python lists with exercises",4],["A textbook chapter on photosynthesis",5]];
+let eduMin=3;
+function drawEdu(){
+  const lv=EDU_LEVELS.find(l=>l.v===eduMin);
+  $("#eduBar").innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap"><span>Tokens kept, which is ${lv.n}</span><span class="mono"><b>${lv.tok}T</b> of 15T</span></div><div class="bar-track"><div style="width:${lv.tok/15*100}%;background:var(--hl)"></div></div>`;
+  $("#eduList").innerHTML=EDU_PAGES.map(([t,sc])=>{const k=sc>=eduMin;return `<div class="edu-row${k?"":" removed"}"><span>${t}</span><span class="mono">score ${sc}</span><span class="pill ${k?"ok":"std"}">${k?"Kept":"Removed"}</span></div>`}).join("");
+}
+makeSeg($("#eduSeg"),EDU_LEVELS.map(l=>({v:l.v,t:l.t})),eduMin,v=>{eduMin=+v;drawEdu();});
+drawEdu();
+
+$("#fwClaims").innerHTML=claimsHTML([
+  {h:"Deduplicating each snapshot on its own gives better models than deduplicating across all snapshots",p:"The authors compared the two methods with ablation models. They also trained a model on the pages that deduplication across all snapshots removed from a 2013 snapshot, and it scored higher than a model trained on the pages that were kept.",ev:"Ablation",c:"ok",w:"Deduplication tab"},
+  {h:"The new filters improve benchmark scores",p:"The authors compared the data with and without the three new filters, and models trained on the filtered data scored higher on average.",ev:"Ablation",c:"ok",w:"Filters tab"},
+  {h:"FineWeb gives better models than other open web datasets",p:"The authors compared FineWeb with RefinedWeb, C4, Dolma, The Pile, and other open datasets, using the same model size and number of tokens for each dataset.",ev:"Ablation",c:"ok",w:""},
+  {h:"FineWeb-Edu improves knowledge and reasoning benchmarks",p:"The authors compared FineWeb-Edu with FineWeb and other open datasets, and models trained on FineWeb-Edu scored higher on MMLU and ARC in particular.",ev:"Ablation",c:"ok",w:"FineWeb-Edu tab"},
+  {h:"The classifier matches the LLM scores",p:"The authors checked the classifier on held-out pages that the LLM had scored. The paper doesn't compare the scores with ratings from people.",ev:"Checked against LLM scores",c:"warn",w:""},
+]);
+
+/* ================= FlashAttention dossier ================= */
+const FA_NOVEL=[
+  {what:"Tiling attention so it fits in SRAM",status:"novel",replaces:"Computing the full score matrix in HBM with separate GPU kernels",why:"Each tile of Q, K, and V is loaded into SRAM and processed inside one GPU kernel, so the N×N intermediate matrices are never written to HBM.",where:"§3.1",link:"#flash-algorithm"},
+  {what:"Online softmax across tiles",status:"inh",replaces:"A softmax that needs the whole row of scores at once",why:"The kernel keeps a running maximum and a running sum for each row, so it can rescale earlier partial results when a new tile arrives. The output equals the standard softmax, and the method comes from earlier work by Milakov and Gimelshein (2018) and Rabe and Staats (2021).",where:"§3.1",link:"#flash-algorithm"},
+  {what:"Recomputation in the backward pass",status:"inh",replaces:"Storing the N×N attention matrix for the backward pass",why:"The kernel stores only the output and the softmax statistics, and it recomputes the attention tiles during the backward pass. The extra arithmetic takes less time than reading a stored N×N matrix from HBM.",where:"§3.1",link:"#flash-algorithm"},
+  {what:"Kernel fusion",status:"std",replaces:"Separate kernels for the matrix multiply, mask, softmax, and dropout",why:"One kernel runs all the steps on a tile, so no intermediate result is written to HBM between steps.",where:"§3.1",link:"#flash-algorithm"},
+  {what:"IO complexity analysis of attention",status:"novel",replaces:"Counting only floating point operations (FLOPs)",why:"The paper counts HBM reads and writes, and it proves that FlashAttention needs Θ(N²d²/M) of them, compared with Θ(Nd + N²) for standard attention. Here N is the sequence length, d is the head size, and M is the SRAM size.",where:"§3.2",link:"#flash-algorithm"},
+  {what:"Block-sparse FlashAttention",status:"novel",replaces:"Approximate attention methods that reduce FLOPs but often don't reduce wall-clock time",why:"The kernel skips the tiles that are zero in a fixed sparsity mask, which cuts both arithmetic and HBM traffic. The paper reports that it is faster than every approximate attention method it tested.",where:"§3.3",link:"#flash-performance"},
+];
+$("#faRows").innerHTML=noveltyRows(FA_NOVEL);
+
+(function faMem(){
+  const rows=[["SRAM, on chip",19e12,"19 TB/s","20 MB","var(--inh)"],["HBM, GPU main memory",1.5e12,"1.5 TB/s","40 GB","var(--rule-strong)"],["CPU DRAM",12.8e9,"12.8 GB/s","more than 1 TB","var(--rule-strong)"]];
+  const lo=9, hi=Math.log10(19e12);
+  $("#faMem").innerHTML=rows.map(r=>`<div><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap"><span>${r[0]}</span><span class="mono"><b>${r[2]}</b>, size ${r[3]}</span></div><div class="bar-track"><div style="width:${(Math.log10(r[1])-lo)/(hi-lo)*100}%;background:${r[4]}"></div></div></div>`).join("");
+})();
+
+const RF={N:4096,d:64}, GPU_FLOPS=312e12, HBMBW=1.5e12;
+const fmtBytes=b=>b>=1e9?(b/1e9).toFixed(2)+" GB":b>=1e6?(b/1e6).toFixed(1)+" MB":(b/1e3).toFixed(0)+" KB";
+const fmtTime=t=>t>=1e-3?(t*1e3).toFixed(2)+" ms":(t*1e6).toFixed(1)+" µs";
+const fmtFlop=f=>f>=1e9?(f/1e9).toFixed(1)+" GFLOP":(f/1e6).toFixed(0)+" MFLOP";
+function drawRF(){
+  const {N,d}=RF, steps=[["1. S = QKᵀ",2*N*d+N*N,2*N*N*d],["2. P = softmax(S)",2*N*N,5*N*N],["3. O = PV",N*N+2*N*d,2*N*N*d]];
+  let tb=0,tf=0;
+  const row=(name,el,fl,bold)=>{const b=el*2,tm=b/HBMBW,tc=fl/GPU_FLOPS,mem=tm>tc;
+    return `<tr${bold?' style="font-weight:600"':""}><td>${name}</td><td class="mono">${fmtBytes(b)}</td><td class="mono">${fmtFlop(fl)}</td><td class="mono">${fmtTime(tm)}</td><td class="mono">${fmtTime(tc)}</td><td><span class="pill ${mem?"warn":"ok"}">${mem?"Memory":"Arithmetic"}</span></td></tr>`;};
+  const body=steps.map(([n,el,fl])=>{tb+=el;tf+=fl;return row(n,el,fl,false)}).join("")+row("All steps",tb,tf,true);
+  $("#rfTable").innerHTML=`<thead><tr><th>Step</th><th>Data moved</th><th>Arithmetic</th><th>Memory time</th><th>Arithmetic time</th><th>Limit</th></tr></thead><tbody>${body}</tbody>`;
+}
+makeSeg($("#rfN"),[512,1024,2048,4096,8192,16384].map(v=>({v,t:kfmt(v)})),RF.N,v=>{RF.N=+v;drawRF();});
+makeSeg($("#rfD"),[64,128].map(v=>({v,t:v})),RF.d,v=>{RF.d=+v;drawRF();});
+drawRF();
+
+const TL={k:0,T:4,timer:null};
+function drawTiles(){
+  const {k,T}=TL, total=T*T, done=k>=total, j=Math.floor(Math.min(k,total-1)/T), i=Math.min(k,total-1)%T;
+  let cells="";
+  for(let r=0;r<T;r++) for(let c=0;c<T;c++){const idx=c*T+r; cells+=`<div class="${idx<k?"done":(idx===k&&!done?"cur":"")}">${r+1},${c+1}</div>`;}
+  $("#faGrid").innerHTML=cells;
+  $("#faTileDetail").innerHTML=done
+    ? `<span class="pill ok">Finished</span><h4>All 16 tiles are done</h4><p>The output O is complete. The kernel wrote only O and the row statistics to HBM, and it never wrote a score tile.</p><p class="kv">K and V blocks read: 4 of 4. Q and O block reads: 16. Score values written to HBM: 0.</p>`
+    : `<span class="pill novel">Tile ${k+1} of ${total}</span><h4>Q block ${i+1} with K and V block ${j+1}</h4><p>In SRAM now: blocks K${j+1} and V${j+1} from the outer loop, and blocks Q${i+1} and O${i+1} from the inner loop.</p><p>The kernel computes the scores for the tile and updates the running maximum and sum for the rows of Q${i+1}. It then adds the tile's share to O${i+1} and writes O${i+1} back to HBM.</p><p class="kv">K and V blocks read: ${j+1} of 4. Q and O block reads: ${k+1}. Score values written to HBM: 0.</p>`;
+}
+function tilePlay(on){
+  if(on===undefined) on=!TL.timer;
+  clearInterval(TL.timer); TL.timer=null;
+  if(on){ if(TL.k>=TL.T*TL.T) TL.k=0; TL.timer=setInterval(()=>{TL.k++;drawTiles();if(TL.k>=TL.T*TL.T) tilePlay(false);},reduceMotion?300:650); }
+  $("#faPlay").textContent=on?"Pause":"Play";
+}
+$("#faPlay").onclick=()=>tilePlay();
+$("#faStep").onclick=()=>{tilePlay(false);TL.k=Math.min(TL.T*TL.T,TL.k+1);drawTiles();};
+$("#faReset").onclick=()=>{tilePlay(false);TL.k=0;drawTiles();};
+drawTiles();
+
+const OS={S:[1.2,3.1,0.4,2.2,4.0,1.5,0.8,3.6],V:[2,-1,0.5,3,1,-2,4,0],b:1,B:2};
+function drawOS(){
+  const {S,V,B,b}=OS, nb=S.length/B;
+  $("#osTokens").innerHTML=S.map((s,k)=>{const blk=Math.floor(k/B);return `<span class="tok ${blk<b-1?"seen":blk===b-1?"t2":""}">s=${s}, v=${V[k]}</span>`}).join("");
+  let m=-Infinity,l=0,o=0; const rows=[];
+  for(let q=0;q<b;q++){
+    const ss=S.slice(q*B,q*B+B), vv=V.slice(q*B,q*B+B), mn=Math.max(m,...ss), sc=Number.isFinite(m)?Math.exp(m-mn):0;
+    const ws=ss.map(x=>Math.exp(x-mn)), ln=sc*l+ws.reduce((a,x)=>a+x,0), on=(sc*l*o+ws.reduce((a,w,z)=>a+w*vv[z],0))/ln;
+    rows.push(`<tr${q===b-1?' style="background:var(--paper)"':""}><td>Block ${q+1}</td><td class="mono">${ss.join(", ")}</td><td class="mono">${mn.toFixed(2)}</td><td class="mono">${ln.toFixed(4)}</td><td class="mono">${on.toFixed(4)}</td></tr>`);
+    m=mn;l=ln;o=on;
+  }
+  $("#osTable").innerHTML=`<thead><tr><th>Block</th><th>Scores</th><th>Running max m</th><th>Running sum ℓ</th><th>Running output o</th></tr></thead><tbody>${rows.join("")}</tbody>`;
+  const M=Math.max(...S), w=S.map(x=>Math.exp(x-M)), full=w.reduce((a,x,z)=>a+x*V[z],0)/w.reduce((a,x)=>a+x,0);
+  $("#osCheck").textContent=b===nb?`Standard softmax over all 8 scores: ${full.toFixed(4)}. Online result after the last block: ${o.toFixed(4)}. The two results match.`:`Standard softmax over all 8 scores: ${full.toFixed(4)}. Online result so far: ${o.toFixed(4)}, from ${b*B} of 8 scores.`;
+  $("#osPrev").disabled=b<=1; $("#osNext").disabled=b>=nb;
+}
+$("#osPrev").onclick=()=>{OS.b=Math.max(1,OS.b-1);drawOS();};
+$("#osNext").onclick=()=>{OS.b=Math.min(OS.S.length/OS.B,OS.b+1);drawOS();};
+drawOS();
+
+const TF={N:4096,d:64,kb:192};
+function drawTF(){
+  const {N,d,kb}=TF, M=kb*1024/2, Bc=Math.ceil(M/(4*d)), Br=Math.min(Bc,d), Tc=Math.ceil(N/Bc);
+  const std=4*N*N+4*N*d, fa=N*(d+2)+2*N*d+Tc*N*(3*d+4);
+  const bar=(name,el,fill)=>`<div><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap"><span>${name}</span><span class="mono"><b>${fmtBytes(el*2)}</b></span></div><div class="bar-track"><div style="width:${Math.max(0.6,el/std*100)}%;background:${fill}"></div></div></div>`;
+  $("#tfBars").innerHTML=bar("Standard attention",std,"var(--rule-strong)")+bar("FlashAttention",fa,"var(--hl)")
+    +`<p class="mono" style="font-size:12.5px;color:var(--muted)">FlashAttention moves ${(std/fa).toFixed(1)} times less data. B_c = ${Bc} and B_r = ${Br}, so the outer loop runs ${Tc} times.</p>`;
+}
+makeSeg($("#tfN"),[1024,2048,4096,8192,16384].map(v=>({v,t:kfmt(v)})),TF.N,v=>{TF.N=+v;drawTF();});
+makeSeg($("#tfD"),[64,128].map(v=>({v,t:v})),TF.d,v=>{TF.d=+v;drawTF();});
+makeSeg($("#tfM"),[100,192].map(v=>({v,t:v+" KB"})),TF.kb,v=>{TF.kb=+v;drawTF();});
+drawTF();
+
+const FA_SPEED=[["Attention computation in GPT-2","1K","PyTorch standard attention",7.6,"7.6×"],["GPT-2 training","1K","HuggingFace implementation",3,"3×"],["Long Range Arena","1K to 4K","Standard attention",2.4,"2.4×"],["BERT-large training","512","MLPerf 1.1 training record",1.15,"1.15×"]];
+$("#faSpeed").innerHTML=`<thead><tr><th>Workload</th><th>Sequence length</th><th>Baseline</th><th>Speedup</th><th style="width:26%">Relative size</th></tr></thead><tbody>${FA_SPEED.map(r=>`<tr><td class="what">${r[0]}</td><td class="mono">${r[1]}</td><td>${r[2]}</td><td class="mono"><b>${r[4]}</b></td><td><div class="bar-track"><div style="width:${r[3]/7.6*100}%;background:var(--hl)"></div></div></td></tr>`).join("")}</tbody>`;
+
+$("#faClaims").innerHTML=claimsHTML([
+  {h:"FlashAttention needs fewer HBM accesses than standard attention",p:"The paper proves the access counts and measures run time and HBM accesses on an A100. In the measurements, run time follows HBM accesses more closely than FLOPs.",ev:"Proof and measurement",c:"ok",w:"§3.2"},
+  {h:"No exact attention algorithm can need asymptotically fewer HBM accesses for all SRAM sizes",p:"The paper proves the lower bound for SRAM sizes M between d and Nd.",ev:"Proof",c:"ok",w:"§3.2"},
+  {h:"BERT-large trains 15% faster than the MLPerf 1.1 record",p:"The authors trained BERT-large to the MLPerf target accuracy and compared the training time with the published record.",ev:"Benchmark against a published record",c:"ok",w:"§4.1"},
+  {h:"GPT-2 trains up to 3× faster than with the HuggingFace implementation",p:"The authors trained GPT-2 to the same perplexity as the baselines. The speedup over Megatron-LM, which is a faster baseline, is smaller.",ev:"Benchmark",c:"ok",w:"§4.1"},
+  {h:"Block-sparse FlashAttention is faster than the approximate attention methods tested",p:"The authors ran every method on the same hardware and sequence lengths, and they compared run time and memory use.",ev:"Benchmark by the authors",c:"std",w:"§4.3"},
+]);
+
 })();
 </script>
 </body>
