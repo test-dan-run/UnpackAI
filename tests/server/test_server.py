@@ -128,6 +128,7 @@ def test_refusal_is_stored_and_the_failed_paper_can_be_retried(client, fake_api)
     pid = client.post("/api/unpack", json={"url": "2312.00752"}).json()["paper_id"]
     paper = client.get(f"/api/papers/{pid}").json()
     assert paper["status"] == "failed" and "declined" in paper["error"]
+    assert paper["step"] == "extract"
     gens = client.get(f"/api/papers/{pid}/generations").json()
     assert gens[0]["stop_reason"] == "refusal" and gens[0]["error"]
 
@@ -146,6 +147,7 @@ def test_rewrite_that_changes_list_lengths_is_rejected(client, fake_api):
     pid = client.post("/api/unpack", json={"url": "2312.00752"}).json()["paper_id"]
     paper = client.get(f"/api/papers/{pid}").json()
     assert paper["status"] == "failed" and "changed the shape" in paper["error"]
+    assert paper["step"] == "plain_writing"
     assert paper["dossier"] is None
 
 
@@ -180,3 +182,33 @@ def test_secret_written_after_start_is_read_on_the_next_unpack(unpacker, fake_ap
         assert c.post("/api/unpack", json={"url": "2312.00752"}).json()["queued"] is True
         assert c.get(f"/api/papers/{pid}").json()["status"] == "done"
     assert fake_api.requests[0]["headers"]["authorization"] == f"Bearer {FAKE_KEY}"
+
+
+def test_paper_lists_its_calls_without_the_raw_output(client):
+    pid = client.post("/api/unpack", json={"url": "2312.00752"}).json()["paper_id"]
+    calls = client.get(f"/api/papers/{pid}").json()["calls"]
+    assert [c["step"] for c in calls] == ["extract", "plain_writing"]
+    assert all("output" not in c and c["model"] == "claude-opus-5-5" for c in calls)
+
+
+def test_retry_starts_a_failed_unpack_again(client, fake_api):
+    fake_api.extract_stop = "refusal"
+    pid = client.post("/api/unpack", json={"url": "https://arxiv.org/abs/2312.00752?context=cs"}).json()["paper_id"]
+    assert client.get(f"/api/papers/{pid}").json()["status"] == "failed"
+
+    fake_api.extract_stop = "end_turn"
+    r = client.post(f"/api/papers/{pid}/retry")
+    assert r.status_code == 202
+    assert client.get(f"/api/papers/{pid}").json()["status"] == "done"
+    # The retry sends the same PDF URL as the first unpack.
+    extracts = [req["body"] for req in fake_api.requests if "<unpack_skill>" in req["body"]["system"][0]["text"]]
+    urls = [body["messages"][0]["content"][0]["source"]["url"] for body in extracts]
+    assert urls == ["https://arxiv.org/pdf/2312.00752"] * 2
+
+    # A paper that isn't failed, a missing paper, and pasted text can't be retried.
+    assert client.post(f"/api/papers/{pid}/retry").status_code == 409
+    assert client.post("/api/papers/999/retry").status_code == 404
+    fake_api.extract_stop = "refusal"
+    tid = client.post("/api/unpack", json={"text": "Full text of a paper"}).json()["paper_id"]
+    r = client.post(f"/api/papers/{tid}/retry")
+    assert r.status_code == 400 and "send the text again" in r.json()["detail"]

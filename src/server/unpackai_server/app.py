@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from .db import Database
 from .safe_logging import configure_logging
 from . import secret_store
-from .unpack import INDEX_HTML, UnpackError, Unpacker, parse_source
+from .unpack import INDEX_HTML, UnpackError, Unpacker, parse_source, source_from_key
 
 log = logging.getLogger("unpackai.http")
 
@@ -91,7 +91,27 @@ def create_app(db_path: str | Path | None = None, unpacker: Unpacker | None = No
         p = db.get_paper(paper_id)
         if not p:
             raise HTTPException(404, "No paper with that id.")
-        return {**p, "dossier": db.latest_dossier(paper_id)}
+        return {
+            **p,
+            "step": request.app.state.unpacker.last_step.get(paper_id),
+            "calls": db.list_calls(paper_id),
+            "dossier": db.latest_dossier(paper_id),
+        }
+
+    @app.post("/api/papers/{paper_id}/retry", status_code=202)
+    def retry(paper_id: int, background: BackgroundTasks, request: Request):
+        db: Database = request.app.state.db
+        p = db.get_paper(paper_id)
+        if not p:
+            raise HTTPException(404, "No paper with that id.")
+        try:
+            source = source_from_key(p["source"], p["source_kind"])
+        except UnpackError as exc:
+            raise HTTPException(400, str(exc))
+        if not db.requeue_failed(paper_id):
+            raise HTTPException(409, "Only a failed unpack can be started again.")
+        background.add_task(request.app.state.unpacker.run, paper_id, source)
+        return {"paper_id": paper_id, "queued": True, "paper": db.get_paper(paper_id)}
 
     @app.get("/api/papers/{paper_id}/generations")
     def generations(paper_id: int, request: Request):

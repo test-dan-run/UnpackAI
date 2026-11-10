@@ -77,6 +77,15 @@ def parse_source(url: str | None = None, text: str | None = None) -> Source:
     return Source(key=url, kind="web_url", url=url)
 
 
+def source_from_key(key: str, kind: str) -> Source:
+    """Rebuild the source of a stored paper from papers.source, to retry an unpack."""
+    if kind == "arxiv":
+        return parse_source(key.removeprefix("arxiv:"))
+    if kind in ("pdf_url", "web_url"):
+        return Source(key=key, kind=kind, url=key)
+    raise UnpackError("The server doesn't keep pasted text, so send the text again to POST /api/unpack.")
+
+
 # ---------------------------------------------------------------- prompts
 EXTRACT_SYSTEM = """You fill in a dossier for UnpackAI, a web app that explains new AI research papers and lab blog posts. A dossier shows what is new in the work, what the work reuses from earlier work, and how well the evidence supports each claim.
 
@@ -126,6 +135,9 @@ class Unpacker:
         self.model = model
         self._client_factory = client_factory or (lambda key: anthropic.Anthropic(api_key=key, max_retries=2))
         self._client: anthropic.Anthropic | None = None
+        # The step that is running, or the step where the unpack stopped, for
+        # each paper since the server started. The page shows it as progress.
+        self.last_step: dict[int, str] = {}
 
     def client(self) -> anthropic.Anthropic:
         if self._client is None:
@@ -230,10 +242,13 @@ class Unpacker:
         """Run the whole unpack for one paper. Errors are stored, not raised."""
         self.db.set_status(paper_id, "running")
         try:
+            self.last_step[paper_id] = "extract"
             draft = self.extract(paper_id, source)
             p = draft["paper"]
             self.db.set_metadata(paper_id, title=p["title"], org=p["org"], published=p["published"], paper_type=p["paper_type"])
+            self.last_step[paper_id] = "plain_writing"
             final = self.plain_writing(paper_id, draft)
+            self.last_step[paper_id] = "text_check"
             problems = [
                 {"field": field, "problem": problem}
                 for field, text in prose_values(final)

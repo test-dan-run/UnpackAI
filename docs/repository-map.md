@@ -26,7 +26,8 @@ UnpackAI/
 |-- tests/
 |   |-- server/               The server tests, run in the test container
 |   `-- web/
-|       `-- check_dossiers.js The browser check, run in the checks container
+|       |-- check_dossiers.js The browser check, run in the checks container
+|       `-- fake_server.js    The fake API that the browser check uses
 |
 |-- scripts/
 |   |-- store-key.sh          Stores the API key in the host keychain
@@ -47,9 +48,13 @@ UnpackAI/
 `src/web/index.html` holds the whole page, in this order:
 
 - The `<style>` block, which starts with the color tokens on `:root` and the dark mode tokens. The CSS for the dataset and systems dossiers comes before `@media (max-width:1100px)`.
-- The header with the command bar, and the library in `<aside class="library">`.
+- The header with the command bar and the unpack progress, and the library in `<aside class="library">`.
 - `<main class="dossier" id="dossier">`, with one `<div class="doc" data-doc="<id>">` for each dossier. Each one has a paper head, a `nav.tabs`, and one `section.panel[data-panel]` for each tab.
-- The `<script>` block. It starts with the library data in `LIB`, the routing in `DOCS`, `parseHash()`, and `showTab()`, and the shared helpers `noveltyRows()`, `claimsHTML()`, `detailHTML()`, and `makeSeg()`. Then it has one block for each dossier, and every name in a block starts with the dossier's prefix, e.g., `FW_` and `fw` for FineWeb.
+- The `<script>` block, in this order:
+  - The shared helpers, e.g., `esc()` and `toast()`, and the library in `LIB` and `renderLib()`
+  - The server connection, with names that start with `api` or `API_`, and the stored dossier template, with names that start with `gen` or `GEN_`
+  - The routing in `DOCS`, `parseHash()`, and `showTab()`
+  - One block for each sample dossier. Every name in a block starts with the dossier's prefix, e.g., `FW_` and `fw` for FineWeb, and the blocks use the shared helpers `noveltyRows()`, `claimsHTML()`, `detailHTML()`, and `makeSeg()`.
 
 ## The server package
 
@@ -71,7 +76,8 @@ UnpackAI/
 | `tests/server/conftest.py` | The fake Claude API, the temporary Docker secret file, and the example dossier draft |
 | `tests/server/test_server.py` | The tests for the endpoints, the unpack steps, the secret, and the logs |
 | `tests/server/requirements.txt` | The server packages plus pytest |
-| `tests/web/check_dossiers.js` | Opens every tab of every dossier and reports problems |
+| `tests/web/check_dossiers.js` | Opens every tab of every dossier, with the page open as a file and from the fake server, and reports problems |
+| `tests/web/fake_server.js` | Answers the page's API requests with a stored dossier, a running unpack, and a failed unpack |
 
 ## Decisions
 
@@ -86,6 +92,8 @@ UnpackAI/
 | [007](adr/007-no-secrets-or-headers-in-logs.md) | The logs never contain the key or request headers |
 | [008](adr/008-docker-only.md) | Every part of the project runs in Docker |
 | [009](adr/009-repository-layout-for-people-and-ai-agents.md) | The repository follows a layout with documentation for people and AI agents |
+| [010](adr/010-add-papers-by-hand.md) | Papers are added by hand, and UnpackAI doesn't collect them on its own |
+| [011](adr/011-page-builds-stored-dossiers-from-json.md) | The page builds each stored dossier from the JSON with one template |
 
 ## Where new work goes
 
@@ -94,7 +102,8 @@ UnpackAI/
 | A dossier for a new paper | `src/web/index.html`, by following `.claude/skills/unpack/SKILL.md` |
 | A new paper type | The paper type tables in `.claude/skills/unpack/SKILL.md` and `docs/architecture.md` |
 | A new kind of interactive figure | `src/web/index.html`, and a row in the figure table of the unpack skill |
-| A new endpoint | `src/server/unpackai_server/app.py`, with a test in `tests/server/test_server.py` |
+| A new endpoint | `src/server/unpackai_server/app.py`, with a test in `tests/server/test_server.py`. If the page calls it, add it to `tests/web/fake_server.js` too. |
+| A change to how the page shows stored dossiers | `genBuild()` in `src/web/index.html`, and the fake dossier in `tests/web/fake_server.js` |
 | A change to how the server calls Claude | `src/server/unpackai_server/unpack.py` |
 | A new dossier field | `src/server/unpackai_server/dossier_schema.py`, and `PROSE_FIELDS` if the field is prose |
 | A new table or column | `src/server/unpackai_server/db.py`. Raise `SCHEMA_VERSION`, and add a step that changes databases that already exist, because `CREATE TABLE IF NOT EXISTS` doesn't add columns. |

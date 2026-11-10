@@ -83,6 +83,9 @@ p{margin:0}
 .pipeline li.run::before{border-color:var(--blue);background:var(--blue-soft)}
 .pipeline li.done{color:var(--ink)}
 .pipeline li.done::before{background:var(--ok);border-color:var(--ok)}
+.pipeline li.fail{color:var(--warn)}
+.pipeline li.fail::before{background:var(--warn);border-color:var(--warn)}
+.pipeline .result .btn{margin-left:8px}
 .pipeline .result{margin-top:8px;font-size:13px}
 
 /* ---------- app grid ---------- */
@@ -106,6 +109,9 @@ p{margin:0}
 .status{font-size:11px;font-weight:600}
 .status.ready{color:var(--ok)}
 .status.queued{color:var(--muted)}
+.status.running{color:var(--blue)}
+.status.failed{color:var(--warn)}
+.lib-error{font-size:12px;color:var(--warn);margin-top:4px;overflow-wrap:anywhere}
 .feeds{margin-top:18px;padding-top:14px;border-top:1px solid var(--rule);font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
 .feeds b{color:var(--ink);font-weight:600}
 
@@ -306,6 +312,11 @@ table.small td,table.small th{padding:8px 12px}
   .pipe .detail,.tilewrap .detail{border-left:0;border-top:1px solid var(--rule);padding-left:0;padding-top:14px}
   .steps3{grid-template-columns:minmax(0,1fr)}
 }
+/* ---------- stored dossiers from the server ---------- */
+.gen-figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.table-wrap td.field{white-space:nowrap}
+.table-wrap td.text{overflow-wrap:anywhere;min-width:220px}
+
 @media (max-width:1100px){
   .specs{grid-template-columns:repeat(3,minmax(0,1fr));width:100%}
   .spec{border-bottom:1px solid var(--rule)}
@@ -344,14 +355,14 @@ table.small td,table.small th{padding:8px 12px}
     </div>
     <form class="unpack-form" id="unpackForm" autocomplete="off">
       <label for="unpackUrl" class="eyebrow" style="position:absolute;left:-9999px">Paper or blog URL</label>
-      <input id="unpackUrl" type="text" placeholder="Paste an arXiv link, lab blog post or PDF URL" value="https://arxiv.org/abs/2412.19437">
+      <input id="unpackUrl" type="text" placeholder="Paste an arXiv link, lab blog post or PDF URL">
       <button class="btn primary" type="submit">Unpack</button>
     </form>
-    <span class="proto-note">Prototype with sample data</span>
+    <span class="proto-note" id="apiNote" aria-live="polite">Checking the server</span>
   </div>
   <div class="pipeline" id="pipeline" hidden>
-    <ol id="pipelineSteps"></ol>
-    <p class="result" id="pipelineResult" hidden></p>
+    <ol id="pipelineSteps" aria-label="Unpack steps"></ol>
+    <p class="result" id="pipelineResult" aria-live="polite" hidden></p>
   </div>
 </header>
 
@@ -362,10 +373,9 @@ table.small td,table.small th{padding:8px 12px}
     <div class="chips" id="libChips" role="group" aria-label="Filter by area"></div>
     <ul class="lib-list" id="libList"></ul>
     <div class="feeds">
-      <span class="eyebrow">Sources you follow</span>
-      <span><b>arXiv</b> cs.CL, cs.LG, cs.AI</span>
-      <span><b>Lab blogs</b> 9 research blogs, checked every hour</span>
-      <span><b>Queue</b> new items are unpacked as they arrive</span>
+      <span class="eyebrow">How to add a paper</span>
+      <span>Paste an arXiv link, a PDF URL, or a blog URL in the bar at the top, and the server unpacks it.</span>
+      <span>UnpackAI doesn't collect new papers on its own, so you add each paper by hand.</span>
     </div>
   </aside>
 
@@ -1087,62 +1097,263 @@ function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a
 function gauss(r){let u=0,v=0;while(!u)u=r();while(!v)v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let toastTimer;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.hidden=true,3800)}
 
 /* ---------------- library ---------------- */
+// The sample dossiers are built into the page. The papers that the server
+// stored come first in the list, once the page has loaded them.
 const LIB = [
-  {id:"dsv3", title:"DeepSeek-V3 Technical Report", org:"DeepSeek-AI", date:"Dec 2024", tags:["Architecture","Training","Systems"], ready:true, built:true},
-  {id:"fineweb", title:"The FineWeb Datasets", org:"Hugging Face", date:"Jun 2024", tags:["Data"], ready:true, built:true},
-  {id:"flash", title:"FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness", org:"Stanford University", date:"May 2022", tags:["Systems"], ready:true, built:true},
-  {id:"r1", title:"DeepSeek-R1: Incentivizing Reasoning via RL", org:"DeepSeek-AI", date:"Jan 2025", tags:["Training"], ready:true},
-  {id:"mamba", title:"Mamba: Linear-Time Sequence Modeling with Selective State Spaces", org:"CMU and Princeton", date:"Dec 2023", tags:["Architecture"], ready:true},
-  {id:"dclm", title:"DataComp-LM", org:"DCLM team", date:"Jun 2024", tags:["Data"], ready:true},
-  {id:"muon", title:"Muon is Scalable for LLM Training", org:"Moonshot AI", date:"Feb 2025", tags:["Training"], ready:false},
+  {id:"dsv3", title:"DeepSeek-V3 Technical Report", org:"DeepSeek-AI", date:"Dec 2024", tags:["Architecture","Training","Systems"]},
+  {id:"fineweb", title:"The FineWeb Datasets", org:"Hugging Face", date:"Jun 2024", tags:["Data"]},
+  {id:"flash", title:"FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness", org:"Stanford University", date:"May 2022", tags:["Systems"]},
 ];
 let currentDoc = "dsv3";
 const AREAS = ["All","Architecture","Data","Training","Systems"];
 let libFilter = "All";
+let apiPapers = [];
+const API_TAGS = {model:["Architecture","Training"], dataset:["Data"], systems:["Systems"], other:[]};
+const API_STATUS = {queued:["In queue","queued"], running:["Unpacking","running"], done:["Unpacked","ready"], failed:["Failed","failed"]};
+const API_KIND = {arxiv:"arXiv paper", pdf_url:"PDF", web_url:"Blog post", text:"Pasted text"};
+// The name of a stored paper. Before the extract call finishes, the paper has no title yet.
+const apiName = p => p.title || (p.source_kind==="arxiv" ? "arXiv "+p.source.slice(6) : p.source_kind==="text" ? "Pasted text" : p.source);
+function libEntries(){
+  const stored = apiPapers.map(p=>({id:"p"+p.id, paper:p, title:apiName(p), org:p.org||API_KIND[p.source_kind]||"", date:p.published||p.created_at.slice(0,10), tags:API_TAGS[p.paper_type]||[]}));
+  return [...stored, ...LIB];
+}
 function renderChips(){
   const c=$("#libChips"); c.innerHTML="";
   AREAS.forEach(a=>{const b=document.createElement("button");b.className="chip";b.textContent=a;b.setAttribute("aria-pressed",a===libFilter);b.onclick=()=>{libFilter=a;renderChips();renderLib()};c.appendChild(b)});
 }
 function renderLib(){
   const q=$("#libSearch").value.trim().toLowerCase(), ul=$("#libList"); ul.innerHTML="";
-  const items=LIB.filter(p=>(libFilter==="All"||p.tags.includes(libFilter))&&(!q||(p.title+" "+p.org).toLowerCase().includes(q)));
+  const items=libEntries().filter(p=>(libFilter==="All"||p.tags.includes(libFilter))&&(!q||(p.title+" "+p.org).toLowerCase().includes(q)));
   $("#libCount").textContent=items.length+" items";
   items.forEach(p=>{
     const li=document.createElement("li"), b=document.createElement("button");
+    const [stLabel,stClass]=p.paper?API_STATUS[p.paper.status]:["Sample dossier","ready"];
     b.className="lib-item"; b.setAttribute("aria-current",p.id===currentDoc);
-    b.innerHTML=`<div class="lib-meta"><span>${p.org}, ${p.date}</span><span class="status ${p.ready?"ready":"queued"}">${p.ready?"Unpacked":"In queue"}</span></div>
-      <div class="lib-title">${p.title}</div><div class="tags">${p.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>`;
-    b.onclick=()=>{ if(p.built) location.hash="#"+p.id+"-overview"; else toast(`The prototype has dossiers for DeepSeek-V3, FineWeb, and FlashAttention. The dossier for "${p.title}" would open here.`); };
+    b.innerHTML=`<div class="lib-meta"><span>${esc(p.org)}, ${esc(p.date)}</span><span class="status ${stClass}">${stLabel}</span></div>
+      <div class="lib-title">${esc(p.title)}</div><div class="tags">${p.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+      ${p.paper&&p.paper.status==="failed"?`<div class="lib-error">${esc(p.paper.error)}</div>`:""}`;
+    b.onclick=()=>{
+      if(!p.paper||p.paper.status==="done") location.hash="#"+p.id+"-overview";
+      else { apiTracked=p.paper.id; apiShowProgress(apiTracked); }
+    };
     li.appendChild(b); ul.appendChild(li);
   });
 }
 $("#libSearch").addEventListener("input",renderLib);
 renderChips(); renderLib();
 
-/* ---------------- unpack pipeline mock ---------------- */
-const STAGES=["Fetch the source","Parse sections and figures","Extract claims","Compare with earlier papers","Build interactive figures"];
-$("#unpackForm").addEventListener("submit",e=>{
+/* ---------------- server connection ---------------- */
+// The page calls the server only when the server serves the page. When the
+// page is open as a file, e.g., in the checks container, it shows the sample
+// dossiers only. The browser never sees the API key, because the server makes
+// every call to Claude.
+const API_ON = location.protocol==="http:"||location.protocol==="https:";
+const API_STEPS = ["Wait in the queue","Read the source and fill in the dossier","Rewrite the prose with the plain-writing skill","Run the text check and store the dossier"];
+const API_STEP_AT = {extract:1, plain_writing:2, text_check:3};
+let apiReachable=false, apiTracked=null, apiTimer=null;
+async function apiFetch(path, opts){
+  const r=await fetch(path, opts);
+  let body=null; try{ body=await r.json(); }catch(e){}
+  if(!r.ok) throw new Error(body&&typeof body.detail==="string"?body.detail:`The server answered with status ${r.status}.`);
+  return body;
+}
+async function apiHealth(){
+  const note=$("#apiNote");
+  if(!API_ON){ note.textContent="Sample dossiers only, because the page is open as a file"; return; }
+  try{
+    const h=await apiFetch("/api/health"); apiReachable=true;
+    note.textContent=h.api_key_configured?"Connected to the server":"The server has no API key, so start it with scripts/compose-up.sh";
+  }catch(e){ note.textContent="The page can't reach the server, so only the sample dossiers work"; }
+}
+async function apiRefresh(){
+  if(!apiReachable) return;
+  try{ apiPapers=await apiFetch("/api/papers"); }catch(e){ return; }
+  renderLib();
+  if(apiTracked!=null) await apiShowProgress(apiTracked);
+  clearTimeout(apiTimer);
+  if(apiPapers.some(p=>p.status==="queued"||p.status==="running")) apiTimer=setTimeout(apiRefresh,3000);
+}
+function apiPipe(stepsHTML, resultHTML){
+  $("#pipeline").hidden=false;
+  $("#pipelineSteps").innerHTML=stepsHTML;
+  const res=$("#pipelineResult"); res.hidden=!resultHTML; res.innerHTML=resultHTML||"";
+}
+async function apiShowProgress(id){
+  let p;
+  try{ p=await apiFetch(`/api/papers/${id}`); }catch(e){ apiPipe("",esc(e.message)); return; }
+  const name=`<b>${esc(apiName(p))}</b>`;
+  let cur=p.status==="queued"?0:p.status==="done"?API_STEPS.length:(API_STEP_AT[p.step]||1);
+  // After a restart, the server doesn't know which step a failed unpack stopped at.
+  if(p.status==="failed"&&!p.step) cur=-1;
+  const cls=i=>i<cur?"done":i===cur?(p.status==="failed"?"fail":"run"):"";
+  const steps=API_STEPS.map((s,i)=>`<li class="${cls(i)}">${s}</li>`).join("");
+  let result;
+  if(p.status==="done"){
+    const n=p.dossier?p.dossier.text_problems.length:0;
+    result=`The dossier for ${name} is ready, and the text check found ${n} ${n===1?"problem":"problems"}. <a href="#p${p.id}-overview">Open the dossier</a>`;
+    genForget("p"+p.id);
+  } else if(p.status==="failed"){
+    result=`The unpack of ${name} failed. ${esc(p.error)}`+(p.source_kind==="text"?"":` <button class="btn small" type="button" data-retry="${p.id}">Try again</button>`);
+  } else {
+    result=`The server is unpacking ${name}, and the page checks the progress every few seconds.`;
+  }
+  if(p.status==="done"||p.status==="failed") apiTracked=null;
+  apiPipe(steps,result);
+}
+$("#unpackForm").addEventListener("submit",async e=>{
   e.preventDefault();
-  const pipe=$("#pipeline"), ol=$("#pipelineSteps"), res=$("#pipelineResult");
-  pipe.hidden=false; res.hidden=true; ol.innerHTML=STAGES.map(s=>`<li>${s}</li>`).join("");
-  const lis=$$("li",ol); let i=0;
-  const tick=()=>{ if(i>0) lis[i-1].className="done"; if(i<lis.length){lis[i].className="run";i++;setTimeout(tick,reduceMotion?50:520);} else {res.hidden=false;res.textContent="The prototype has no extraction service yet, so it shows the sample DeepSeek-V3 dossier instead.";} };
-  tick();
+  const url=$("#unpackUrl").value.trim();
+  if(!url){ apiPipe("","Paste an arXiv link, a PDF URL, or a blog URL first."); return; }
+  if(!apiReachable){
+    apiPipe("",API_ON?"The page can't reach the server, so it can't unpack the paper. Check that the app container is running.":"The page is open as a file, so it can't reach the server. Start the server with scripts/compose-up.sh, and open http://127.0.0.1:8000.");
+    return;
+  }
+  try{
+    const r=await apiFetch("/api/unpack",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url})});
+    apiTracked=r.paper_id;
+    await apiRefresh();
+  }catch(err){ apiPipe("",esc(err.message)); }
 });
+$("#pipelineResult").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-retry]"); if(!b) return;
+  b.disabled=true;
+  try{ await apiFetch(`/api/papers/${b.dataset.retry}/retry`,{method:"POST"}); apiTracked=+b.dataset.retry; await apiRefresh(); }
+  catch(err){ apiPipe("",esc(err.message)); }
+});
+
+/* ---------------- stored dossiers ---------------- */
+// A dossier that the server generated gets a doc with the id "p<paper id>",
+// which the page builds from the stored JSON when you open it. The page
+// escapes every value from the server, because the text comes from a paper
+// or a web page.
+const GEN_TYPE = {model:"Model paper", dataset:"Dataset paper", systems:"Systems paper", other:"Other paper"};
+const GEN_EVIDENCE_CLASS = ["ok","warn","std"];
+const GEN_STATUS = ["novel","inh","std"];
+const GEN_FIELD = {"thesis":"Thesis", "highlights[]":"Highlight", "specs[].label":"Number label", "tabs[].title":"Tab title", "tabs[].lede":"Tab introduction",
+  "novelties[].what":"New idea", "novelties[].replaces":"What the idea replaces", "novelties[].why":"Why the idea works", "claims[].heading":"Claim heading",
+  "claims[].text":"Claim", "figures[].title":"Figure title", "figures[].what_to_notice":"What to notice", "numbers[].meaning":"Meaning of a number", "not_disclosed[]":"Not disclosed"};
+const GEN_STEP = {extract:"Read the source", plain_writing:"Rewrite the prose"};
+function genSlug(s,used){ const b=String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"")||"tab"; let id=b, i=2; while(used.has(id)) id=b+(i++); used.add(id); return id; }
+function genLink(p,d){
+  const u=d.paper&&d.paper.source_url;
+  if(u&&/^https?:\/\//i.test(u)) return u;
+  if(p.source_kind==="arxiv") return "https://arxiv.org/abs/"+p.source.slice(6);
+  return /^https?:\/\//i.test(p.source)?p.source:null;
+}
+function genFieldText(d,field){
+  const [path,n]=field.split("#"); let v=d;
+  for(const part of path.split(".")) v=part.endsWith("[]")?(v&&v[part.slice(0,-2)]||[])[+n]:(v&&v[part]);
+  return typeof v==="string"?v:"";
+}
+function genFieldLabel(field){
+  const [path,n]=field.split("#"), name=GEN_FIELD[path]||path;
+  return path.includes("[]")?`${name} ${+n+1}`:name;
+}
+function genFigures(figs){
+  if(!figs.length) return "";
+  return `<div class="gen-figs">${figs.map(f=>`<div class="viz"><div class="viz-head"><div><div class="eyebrow">Suggested figure, not built yet</div><h3>${esc(f.title)}</h3></div></div>
+    <div class="viz-body"><p class="notice"><b>What to notice:</b> ${esc(f.what_to_notice)}</p>${f.uses_made_up_values?`<p class="proto-note">The figure needs example values that the paper doesn't give.</p>`:""}</div></div>`).join("")}</div>`;
+}
+function genBuild(p){
+  const d=p.dossier.content, problems=p.dossier.text_problems||[], docId="p"+p.id;
+  const used=new Set(), keyOf={};
+  let tabs=(d.tabs||[]).map(t=>({...t, key:genSlug(t.id,used)}));
+  tabs.forEach(t=>{ if(!(t.id in keyOf)) keyOf[t.id]=t.key; });
+  if(tabs.length<2){
+    if(!tabs.length) tabs.push({id:"overview",title:"Overview",lede:"",key:genSlug("overview",used)});
+    tabs.push({id:"evidence",title:"Evidence",lede:"",key:genSlug("evidence",used)});
+  }
+  const checkKey=genSlug("textcheck",used);
+  const first=tabs[0], last=tabs[tabs.length-1], titleOf=k=>{const t=tabs.find(t=>t.key===k);return t?t.title:k};
+  const where=w=>{const k=keyOf[w];return k?`<a href="#${docId}-${k}">${esc(titleOf(k))}</a>`:esc(w)};
+  const novRows=rows=>rows.map(n=>{const st=GEN_STATUS.includes(n.status)?n.status:"std";return `<tr><td class="what">${esc(n.what)}</td><td><span class="pill ${st}">${label[st]}</span></td><td>${esc(n.replaces)}</td><td>${esc(n.why)}</td><td class="sec">${where(n.where)}</td></tr>`}).join("");
+  const novTable=rows=>rows.length?`<div class="table-wrap"><table><thead><tr><th>Idea</th><th>Status</th><th>What it replaces</th><th>Why it works</th><th>Explained in</th></tr></thead><tbody>${novRows(rows)}</tbody></table></div>`:"";
+  const claims=rows=>claimsHTML(rows.map(c=>({h:esc(c.heading),p:esc(c.text),c:GEN_EVIDENCE_CLASS.includes(c.evidence_class)?c.evidence_class:"std",ev:esc(c.evidence),w:keyOf[c.where]?esc(titleOf(keyOf[c.where])):esc(c.where)})));
+  const figsFor=t=>(d.figures||[]).filter(f=>keyOf[f.tab]===t.key);
+  const head=(t,h2)=>`<div><div class="section-title"><h2>${h2||esc(t.title)}</h2></div>${t.lede?`<p class="lede" style="margin-top:8px">${esc(t.lede)}</p>`:""}</div>`;
+
+  let thesis=esc(d.thesis);
+  (d.highlights||[]).forEach(h=>{const e=esc(h); if(e) thesis=thesis.replace(e,()=>`<span class="mark">${e}</span>`);});
+  const link=genLink(p,d), src=p.source_kind==="arxiv"?"arXiv "+esc(p.source.slice(6)):esc(API_KIND[p.source_kind]||"Source");
+  const eyebrow=[GEN_TYPE[d.paper.paper_type]||"Paper", link?`<a href="${esc(link)}" target="_blank" rel="noopener">${src}</a>`:src, esc(d.paper.published), esc(d.paper.org)].filter(Boolean).join(", ");
+  const nNovel=(d.novelties||[]).filter(n=>n.status==="novel").length;
+  const nProb=problems.length;
+
+  const panels=tabs.map((t,i)=>{
+    let body;
+    if(i===0) body=head(t,"New ideas in the paper")+novTable(d.novelties||[])+genFigures(figsFor(t));
+    else if(t===last) body=head(t,"Claims and how well they are supported")+`<div class="claims">${claims(d.claims||[])}</div>`
+      +((d.numbers||[]).length?`<div class="table-wrap"><table class="small"><thead><tr><th>Number</th><th>What it means</th><th>Source in the paper</th></tr></thead><tbody>${d.numbers.map(n=>`<tr><td>${esc(n.value)}</td><td>${esc(n.meaning)}</td><td class="sec">${esc(n.source)}</td></tr>`).join("")}</tbody></table></div>`:"")
+      +((d.not_disclosed||[]).length?`<div class="viz"><div class="viz-head"><div><div class="eyebrow">Missing information</div><h3>Information the paper does not give</h3></div></div><div class="viz-body"><ul class="gaps">${d.not_disclosed.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></div>`:"")
+      +genFigures(figsFor(t));
+    else body=head(t)+novTable((d.novelties||[]).filter(n=>keyOf[n.where]===t.key))+genFigures(figsFor(t));
+    return `<section class="panel" data-panel="${t.key}"${i?" hidden":""}>${body}</section>`;
+  }).join("");
+
+  const probRows=problems.map(x=>`<tr><td class="field">${esc(genFieldLabel(x.field))}</td><td>${esc(x.problem)}</td><td class="text">${esc(genFieldText(d,x.field))}</td></tr>`).join("");
+  const calls=(p.calls||[]).map(c=>`<tr><td>${esc(GEN_STEP[c.step]||c.step)}</td><td>${esc(c.model)}</td><td>${c.input_tokens==null?"":fmt(c.input_tokens)}</td><td>${c.output_tokens==null?"":fmt(c.output_tokens)}</td><td>${c.duration_ms==null?"":(c.duration_ms/1000).toFixed(1)+" s"}</td><td>${c.error?esc(c.error):"Finished"}</td></tr>`).join("");
+  const checkPanel=`<section class="panel" data-panel="${checkKey}" hidden>
+    <div><div class="section-title"><h2>Text check</h2><span class="eyebrow">${nProb} ${nProb===1?"problem":"problems"}</span></div>
+    <p class="lede" style="margin-top:8px">After the plain-writing call, the server checks every prose field for the problems that a script can find, e.g., dashes, curly quotes, overused words, and sentences that start with a demonstrative pronoun. Most plain-writing rules need a person or a model to judge them, so read the text against the skill as well.</p></div>
+    ${nProb?`<div class="table-wrap"><table class="small"><thead><tr><th>Field</th><th>Problem</th><th>Text</th></tr></thead><tbody>${probRows}</tbody></table></div>`:`<p class="lede">The text check found no problems in the prose fields.</p>`}
+    ${calls?`<div class="viz"><div class="viz-head"><div><div class="eyebrow">Calls to Claude</div><h3>The calls that made the dossier, and the model that answered each one</h3></div></div><div class="viz-body"><div class="table-wrap"><table class="small"><thead><tr><th>Step</th><th>Model</th><th>Input tokens</th><th>Output tokens</th><th>Time</th><th>Result</th></tr></thead><tbody>${calls}</tbody></table></div></div></div>`:""}
+  </section>`;
+
+  const el=document.createElement("div");
+  el.className="doc"; el.dataset.doc=docId; el.hidden=true;
+  el.innerHTML=`<div class="paper-head">
+      <div class="eyebrow">${eyebrow}</div>
+      <h1>${esc(d.paper.title)}</h1>
+      <p class="thesis">${thesis}</p>
+      ${(d.specs||[]).length?`<div class="specs">${d.specs.map(x=>`<div class="spec"><b>${esc(x.value)}</b><span>${esc(x.label)}</span></div>`).join("")}</div>`:""}
+      <p class="ptype-note"><span class="ptype">${GEN_TYPE[d.paper.paper_type]||"Paper"}</span> The server unpacked the source, and the dossier is version ${+p.dossier.version}. ${nProb?`<a href="#${docId}-${checkKey}">The text check found ${nProb} ${nProb===1?"problem":"problems"}</a>`:"The text check found no problems."}</p>
+      <div class="legend"><span><i class="sw novel"></i>New in this paper</span><span><i class="sw inh"></i>Inherited from earlier work</span><span><i class="sw std"></i>Standard practice</span></div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Dossier sections">
+      ${tabs.map((t,i)=>`<a class="tab" role="tab" href="#${docId}-${t.key}" data-tab="${t.key}">${esc(t.title)}${i===0&&nNovel?` <span class="count">${nNovel}</span>`:""}</a>`).join("")}
+      <a class="tab" role="tab" href="#${docId}-${checkKey}" data-tab="${checkKey}">Text check${nProb?` <span class="count">${nProb}</span>`:""}</a>
+    </nav>${panels}${checkPanel}`;
+  return {el, tabs:[...tabs.map(t=>t.key), checkKey]};
+}
+async function genLoad(docId){
+  const p=await apiFetch(`/api/papers/${docId.slice(1)}`);
+  if(!p.dossier) throw new Error(p.status==="failed"?`The unpack failed. ${p.error||""}`:"The dossier isn't ready yet.");
+  const {el,tabs}=genBuild(p);
+  genForget(docId);
+  $("#dossier").appendChild(el);
+  DOCS[docId]=tabs;
+}
+// Remove a stored dossier from the page, so the page loads the latest version the next time you open it.
+function genForget(docId){
+  if(docId===currentDoc) return;
+  const old=$(`.doc[data-doc="${docId}"]`); if(old) old.remove();
+  delete DOCS[docId];
+}
+async function genOpen(docId){
+  if(!API_ON){ toast("The page is open as a file, so it can't load dossiers from the server."); return; }
+  try{ await genLoad(docId); }catch(e){ toast(e.message); return; }
+  if(parseHash()[0]!==docId) return;
+  showTab(); $("#dossier").scrollIntoView({block:"start"});
+}
 
 /* ---------------- routing across dossiers ---------------- */
 const DOCS={dsv3:["overview","architecture","data","training","evidence"],fineweb:["overview","pipeline","filters","dedup","edu","evidence"],flash:["overview","bottleneck","algorithm","performance","evidence"]};
 function parseHash(){
-  const h=location.hash.replace("#",""), m=h.match(/^(dsv3|fineweb|flash)-([a-z]+)$/);
-  if(m && DOCS[m[1]].includes(m[2])) return [m[1],m[2]];
+  const h=location.hash.replace("#",""), m=h.match(/^([a-z0-9]+)-([a-z0-9]+)$/);
+  if(m && DOCS[m[1]]) return [m[1], DOCS[m[1]].includes(m[2])?m[2]:DOCS[m[1]][0]];
+  if(m && /^p\d+$/.test(m[1])) return [m[1],m[2]];
   if(DOCS.dsv3.includes(h)) return ["dsv3",h];
   return ["dsv3","overview"];
 }
 function showTab(){
-  const [d,t]=parseHash(), changed=d!==currentDoc; currentDoc=d;
+  const [d,t]=parseHash();
+  // A stored dossier that isn't in the page yet. genOpen calls showTab again once it is.
+  if(!DOCS[d]){ genOpen(d); return {doc:null,changed:false}; }
+  const changed=d!==currentDoc; currentDoc=d;
   $$(".doc").forEach(x=>x.hidden=x.dataset.doc!==d);
   const doc=$(`.doc[data-doc="${d}"]`);
   $$(".tab",doc).forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===t));
@@ -1152,10 +1363,12 @@ function showTab(){
 }
 window.addEventListener("hashchange",()=>{
   const {doc,changed}=showTab();
+  if(!doc) return;
   if(changed){ $("#dossier").scrollIntoView({block:"start"}); return; }
   const nav=$(".tabs",doc); if(nav.getBoundingClientRect().top<0) nav.scrollIntoView({block:"start"});
 });
 showTab();
+apiHealth().then(apiRefresh);
 
 /* ---------------- overview ---------------- */
 const NOVEL=[
@@ -1327,7 +1540,6 @@ const CODE=`def moving_average(xs, k):
         window = xs[i:i + k]
         out.append(sum(window) / k)
     return out`;
-const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 let fimRng=mulberry32(5);
 function drawFIM(){
   const lines=CODE.split("\n"); const starts=[];let acc=0;lines.forEach(l=>{starts.push(acc);acc+=l.length+1});

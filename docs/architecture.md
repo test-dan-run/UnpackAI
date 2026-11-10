@@ -31,11 +31,15 @@ flowchart LR
 
 The page in `src/web/index.html` has three parts:
 
-- The command bar at the top takes an arXiv link, a blog URL, or a PDF. The Unpack button shows a mock of the processing steps, because the page doesn't call the server yet.
-- The library on the left lists the papers and posts from the sources you follow. You can filter the library by area, e.g., architecture or data, and each entry shows whether it has been unpacked.
+- The command bar at the top takes an arXiv link, a PDF URL, or a blog URL. The Unpack button sends the link to the server, and the bar shows each step of the unpack while the server works.
+- The library on the left lists the papers that the server stored, and then the three sample dossiers. You can filter the library by area, e.g., architecture or data, and each stored paper shows its status, e.g., unpacking or failed.
 - The dossier on the right explains one paper in tabs.
 
-The page routes between dossiers and tabs with the URL hash, in the form `#<dossier id>-<tab>`, e.g., `#fineweb-filters`. The `DOCS` table in the script lists the tabs of each dossier.
+You add each paper by hand, because UnpackAI doesn't collect new papers on its own. ADR 010 records the choice.
+
+The page calls the server only when the server serves the page. When you open `src/web/index.html` as a file, e.g., in the checks container, the page shows the sample dossiers, and the Unpack button says how to start the server.
+
+The page routes between dossiers and tabs with the URL hash, in the form `#<dossier id>-<tab>`, e.g., `#fineweb-filters`. A stored dossier has the id `p` followed by the paper id, e.g., `#p12-overview`. The `DOCS` table in the script lists the tabs of each dossier, and the page adds a stored dossier to the table when it loads the dossier.
 
 The colors have a fixed meaning on every page. Yellow marks an idea that is new in the paper, blue marks an idea from earlier work, and grey marks standard practice. The page defines every color as a token on `:root` with a second set for dark mode.
 
@@ -55,7 +59,19 @@ The dataset dossier has a pipeline diagram, a filter tester that computes page s
 
 The systems dossier has a roofline estimate that shows why standard attention is limited by memory traffic, and an animation of the loop over tiles. It also has a worked example of the online softmax and a calculator that compares HBM traffic for standard attention and FlashAttention. Its Performance tab names the baseline for each speedup, because the paper uses different baselines for different results.
 
-The other library entries don't have dossiers yet, and they show how the list of papers would look.
+### Unpack progress
+
+While an unpack runs, the page asks the server for the paper every three seconds, and the command bar marks the step that is running. The steps are the queue, the extract call, the plain-writing call, and the text check. When an unpack fails, the bar marks the step that failed, and it shows the error with a Try again button. You can also open the progress of a paper from the library.
+
+### Stored dossiers
+
+The page builds a stored dossier from the JSON that the server returns, when you open the dossier from the library. ADR 011 records the choice. The dossier has the tabs from the extract call, and it ends with a Text check tab.
+
+- The first tab has the table of new ideas. The last tab before Text check has the claims, the numbers with their sources, and the information that the paper doesn't give.
+- Each tab in between has its introduction, the new ideas that the tab explains, and the figures that the extract call suggests. The page doesn't build interactive figures for stored dossiers yet, so each suggested figure shows its title and its "What to notice" note.
+- The Text check tab lists each problem that the server's text check found, with the name of the field and its text. It also lists the calls to Claude, with the model that answered each call and the token counts.
+
+The paper head says how many problems the text check found, with a link to the Text check tab. The page escapes every value from the server before it adds the value to the page, because the text comes from a paper or a web page.
 
 ## Server
 
@@ -76,12 +92,13 @@ Both calls use `claude-opus-5-5` with adaptive thinking and streaming. They also
 | `GET /api/health` | Says whether the Docker secret has a key. It never returns the key. |
 | `POST /api/unpack` | Starts an unpack. The body is `{"url": "..."}` with an arXiv link or id, a PDF URL, or a blog URL, or `{"text": "..."}` with the full text. |
 | `GET /api/papers` | Lists every paper with its status, which is queued, running, done, or failed |
-| `GET /api/papers/{id}` | Returns one paper with its latest dossier |
+| `GET /api/papers/{id}` | Returns one paper with its latest dossier, the step that is running or that failed, and the calls to Claude without the raw output |
+| `POST /api/papers/{id}/retry` | Starts a failed unpack again from the stored source. A paper from pasted text can't start again this way, because the server stores only a hash of the text. |
 | `GET /api/papers/{id}/generations` | Returns every call to Claude for the paper, with the model, the token counts, and the raw output |
 
 The interactive API documentation is at `/api/docs`. If you send the same source twice, the server returns the stored paper without calling Claude again. It calls Claude again only if the first unpack failed. The server drops query strings and fragments from arXiv links, so different links to one paper map to one stored paper.
 
-When the server starts, it marks every paper that was still queued or running as failed, because a stopped server can't finish those unpacks.
+When the server starts, it marks every paper that was still queued or running as failed, because a stopped server can't finish the unpacks. The server keeps the step of each unpack in memory, so after a restart the page can't show the step where a failed unpack stopped.
 
 ### Database
 
@@ -128,7 +145,12 @@ The `app` container runs as a user without root rights, with every capability dr
 
 The root filesystem of the `app` container isn't read-only, because Compose copies a secret from an environment variable into the container. ADR 006 explains the choice.
 
-The `checks` container first runs the text check on the page and on the Markdown documentation, except the copied plain-writing skill, whose examples break the rules on purpose. It then runs `tests/web/check_dossiers.js`, which opens every tab of every dossier in Chromium. The browser check reports script errors, tabs that show the wrong panel, and pages that scroll sideways on a phone. It saves a screenshot of every tab when the repository root has a `shots` folder that anyone can write to, e.g., after `mkdir -p shots && chmod 777 shots`.
+The `checks` container first runs the text check on the page and on the Markdown documentation, except the copied plain-writing skill, whose examples break the rules on purpose. It then runs `tests/web/check_dossiers.js`, which opens every tab of every dossier in Chromium, at desktop width and at phone width.
+
+1. First, the browser check opens the page as a file.
+2. Second, it opens the page from the fake server in `tests/web/fake_server.js`. The fake server answers the API requests with a stored dossier, a running unpack, and a failed unpack, so the check needs no network and no key.
+
+The browser check reports script errors, tabs that show the wrong panel, and pages that scroll sideways on a phone. With the fake server, it also checks the library, the progress in the command bar, the Try again button, the Text check tab, and the escaping of HTML from the server. It saves a screenshot of every tab when the repository root has a `shots` folder that anyone can write to, e.g., after `mkdir -p shots && chmod 777 shots`.
 
 On Windows, run the scripts in WSL or Git Bash. When neither `security` nor `secret-tool` is installed, the scripts use the Python `keyring` package on the host.
 
@@ -140,9 +162,9 @@ The full app would process each new paper in a fixed order, and the server alrea
 
 | Step | Status |
 | --- | --- |
-| Collect new items from arXiv categories (cs.CL and cs.LG) and from the RSS feeds of lab blogs | Planned. The server only takes sources that you send it. |
+| Add a new paper or blog post | Built. You paste a link in the command bar, and UnpackAI doesn't collect new papers on its own (ADR 010). |
 | Read the sections, tables, figures, and equations | Built in part. Claude reads a PDF from its URL and a blog post with web fetch, and the server doesn't use the LaTeX source from arXiv yet. |
 | Fill in the dossier fields, e.g., the new ideas, the claims, and the numbers with their sources | Built. The first call returns the fields as JSON. |
 | Compare the paper with earlier dossiers, so reused ideas are marked as inherited | Planned. The first call marks an idea as inherited only when the paper cites earlier work for it. |
-| Rewrite every paragraph with the plain-writing skill | Built. The second call rewrites the prose, and the text check runs on the result. |
-| Show the dossier in the page, with interactive figures filled in from the paper's numbers | Planned. The first call suggests figures, but the page doesn't read stored dossiers yet. |
+| Rewrite every paragraph with the plain-writing skill | Built. The second call rewrites the prose, the text check runs on the result, and the Text check tab shows the problems. |
+| Show the dossier in the page, with interactive figures filled in from the paper's numbers | Built in part. The page shows each stored dossier, and it lists the suggested figures without building them. |

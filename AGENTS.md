@@ -17,6 +17,8 @@ For a request to unpack a new paper or blog post, follow `.claude/skills/unpack/
 - Every call to Claude goes through `src/server/unpackai_server/unpack.py`.
 - The server reads the API key only from the Docker secret `/run/secrets/anthropic_api_key`, with `secret_store.py`.
 - Every part of the project runs in a container that `compose.yaml` defines.
+- The page escapes every value from the server with `esc()`, because the text comes from papers and web pages.
+- Papers are added by hand, through the command bar or `POST /api/unpack`. ADR 010 records the choice, so automatic collection needs a new ADR.
 
 ## Development rules
 

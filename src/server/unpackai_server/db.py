@@ -107,6 +107,14 @@ class Database:
             )
             return cur.lastrowid, True
 
+    def requeue_failed(self, paper_id: int) -> bool:
+        """Queue a failed paper again. Return False if the paper isn't failed."""
+        with self.tx() as c:
+            cur = c.execute(
+                "UPDATE papers SET status='queued', error=NULL, updated_at=? WHERE id=? AND status='failed'", (now(), paper_id)
+            )
+            return cur.rowcount == 1
+
     def set_status(self, paper_id: int, status: str, error: str | None = None) -> None:
         with self.tx() as c:
             c.execute("UPDATE papers SET status=?, error=?, updated_at=? WHERE id=?", (status, error, now(), paper_id))
@@ -141,6 +149,16 @@ class Database:
     def list_generations(self, paper_id: int) -> list[dict[str, Any]]:
         with self.tx() as c:
             rows = c.execute("SELECT * FROM generations WHERE paper_id = ? ORDER BY id", (paper_id,)).fetchall()
+        return [dict(r) for r in rows]
+
+    def list_calls(self, paper_id: int) -> list[dict[str, Any]]:
+        """Return each call for the paper without the raw output, which can be long."""
+        with self.tx() as c:
+            rows = c.execute(
+                "SELECT step, model, stop_reason, input_tokens, output_tokens, duration_ms, error, created_at "
+                "FROM generations WHERE paper_id = ? ORDER BY id",
+                (paper_id,),
+            ).fetchall()
         return [dict(r) for r in rows]
 
     # ---------- dossiers ----------

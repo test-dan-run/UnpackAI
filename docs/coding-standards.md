@@ -16,7 +16,9 @@ The text check in `src/server/unpackai_server/text_check.py` finds the problems 
 ## Page
 
 - Keep the page in one file with no build step. The page loads only the Google Fonts stylesheet from outside, and every script and style is inline.
-- Give each dossier a short id, e.g., `fineweb`, and a two-letter prefix, e.g., `FW` and `fw`. Put the prefix on every element id and every top-level name in the dossier's script block, because all the dossiers share one script.
+- Give each dossier a short id, e.g., `fineweb`, and a two-letter prefix, e.g., `FW` and `fw`. Put the prefix on every element id and every top-level name in the dossier's script block, because all the dossiers share one script. Don't use an id of the form `p` and a number, because the stored dossiers use those ids.
+- Escape every value from the server with `esc()` before you add it to the page, e.g., a title, an error, or a field of a stored dossier.
+- Call the server only when `API_ON` is true, so the page still works when you open it as a file.
 - Use the color tokens, e.g., `--hl`, `--inh`, `--std`, `--ink`, and `--paper`, and don't write fixed colors. The tokens have a second set for dark mode.
 - Reuse the existing CSS classes. Put a new rule before `@media (max-width:1100px)`, and add a rule for 620px and less when the layout needs one.
 - Make the page work at 400px width with no sideways scroll.
@@ -43,6 +45,7 @@ The text check in `src/server/unpackai_server/text_check.py` finds the problems 
 - Add a test for each new endpoint or unpack step, and assert on what the user sees, e.g., the stored status and error.
 - Run the tests in the `test` container after every change to the server.
 - Keep the browser check in `tests/web/check_dossiers.js` generic. It reads the dossiers and tabs from the page, so a new dossier needs no change to the check.
+- When the page uses a new endpoint or a new field from the server, add it to the fake server in `tests/web/fake_server.js`.
 
 ## Containers
 

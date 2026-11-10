@@ -111,9 +111,8 @@ Pick a short id of lowercase letters for the dossier, e.g., `mamba`, and a two-l
    - Add `<div class="doc" data-doc="<id>" hidden>` inside `<main class="dossier" id="dossier">`, after the last dossier.
    - Copy the paper head, the `nav.tabs`, and one `section.panel[data-panel]` per tab from the closest example. Each tab links to `#<id>-<tab>`, and every panel except Overview has `hidden`.
 2. Connect the dossier to the library and the router.
-   - In `LIB`, add an entry with `ready:true` and `built:true`, or add `built:true` to the entry if it's already there, e.g., Mamba, DeepSeek-R1, and DataComp-LM.
-   - Add the paper's short name to the toast text in `renderLib()`, which lists the dossiers that the prototype has.
-   - Add the id and its tab list to `DOCS`, and add the id to the regular expression in `parseHash()`.
+   - In `LIB`, add an entry with the id, the title, the organization, the date, and the area tags.
+   - Add the id and its tab list to `DOCS`. Don't use an id of the form `p` and a number, e.g., `p12`, because the page uses those ids for the dossiers that the server stored.
 3. Add the script in a new block after the last dossier block, with a comment line that names the paper. Use the shared helpers `noveltyRows()`, `claimsHTML()`, `detailHTML()`, and `makeSeg()`.
 4. Reuse the existing CSS classes. Add new rules only when no class fits, and put them before `@media (max-width:1100px)` with a rule for 620px and less. Use the color tokens, e.g., `--hl`, `--inh`, `--std`, `--ink`, and `--paper`, so the colors work in dark mode.
 

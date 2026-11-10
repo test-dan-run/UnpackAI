@@ -4,7 +4,7 @@ UnpackAI is a web app that explains new AI research papers and lab blog posts. F
 
 ## Purpose
 
-The app turns a paper into a dossier, which is a page with tabs that explain the paper. Each dossier lists the paper's new ideas with the practice each idea replaces, and it tags each claim by the kind of evidence behind it, e.g., an ablation or a figure the authors report without a separate check. The tabs depend on the paper type, e.g., a dataset paper has tabs for its processing pipeline and its filters.
+You add a paper by pasting its link, and the app turns the paper into a dossier, which is a page with tabs that explain the paper. Each dossier lists the paper's new ideas with the practice each idea replaces, and it tags each claim by the kind of evidence behind it, e.g., an ablation or a figure the authors report without a separate check. The tabs depend on the paper type, e.g., a dataset paper has tabs for its processing pipeline and its filters.
 
 ## Architecture
 
@@ -19,7 +19,7 @@ The details are in [docs/architecture.md](docs/architecture.md).
 
 | Component | Path | What it does |
 | --- | --- | --- |
-| Prototype page | `src/web/index.html` | Shows the library and three complete dossiers, one for each paper type |
+| Page | `src/web/index.html` | Sends links to the server, and shows the library, the stored dossiers with their text check results, and three sample dossiers |
 | Server | `src/server/unpackai_server/` | Unpacks a paper with two calls to Claude and stores the results |
 | Skills | `.claude/skills/` | The unpack steps and the plain-writing rules, which Claude Code and the server both use |
 | Containers | `compose.yaml`, `docker/` | The `app`, `test`, and `checks` containers |
@@ -47,7 +47,7 @@ Second, build and start the app container. The script reads the key from the key
 scripts/compose-up.sh
 ```
 
-Third, open http://127.0.0.1:8000 in a browser.
+Third, open http://127.0.0.1:8000 in a browser. To unpack a paper, paste an arXiv link, a PDF URL, or a blog URL in the bar at the top, and click Unpack. The bar shows each step while the server works, and the library shows the paper when its dossier is ready.
 
 To run the server tests and the page checks, use the commands below. The `--build` option copies your latest changes into the images first.
 
