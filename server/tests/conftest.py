@@ -5,13 +5,10 @@ from pathlib import Path
 
 import anthropic
 import httpx2
-import keyring
 import pytest
-from keyring.backend import KeyringBackend
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from unpackai_server import secret_store  # noqa: E402
 from unpackai_server.db import Database  # noqa: E402
 from unpackai_server.unpack import Unpacker  # noqa: E402
 
@@ -89,30 +86,23 @@ class FakeAPI:
         return httpx2.Response(200, headers={"content-type": "text/event-stream", "request-id": "req_test"}, text=sse(text, stop))
 
 
-class MemoryKeyring(KeyringBackend):
-    priority = 100
+@pytest.fixture(autouse=True)
+def secret_file(tmp_path, monkeypatch):
+    """Point the server at a Docker secret file in a temporary folder.
 
-    def __init__(self):
-        super().__init__()
-        self.store = {}
-
-    def get_password(self, service, username):
-        return self.store.get((service, username))
-
-    def set_password(self, service, username, password):
-        self.store[(service, username)] = password
-
-    def delete_password(self, service, username):
-        self.store.pop((service, username), None)
+    The file doesn't exist until a test writes it, so no test reads
+    /run/secrets on the machine that runs the tests.
+    """
+    path = tmp_path / "secrets" / "anthropic_api_key"
+    path.parent.mkdir()
+    monkeypatch.setenv("UNPACKAI_SECRET_FILE", str(path))
+    return path
 
 
 @pytest.fixture
-def fake_keyring():
-    previous = keyring.get_keyring()
-    kr = MemoryKeyring()
-    keyring.set_keyring(kr)
-    yield kr
-    keyring.set_keyring(previous)
+def stored_key(secret_file):
+    secret_file.write_text(FAKE_KEY + "\n")
+    return FAKE_KEY
 
 
 @pytest.fixture

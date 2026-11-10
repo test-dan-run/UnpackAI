@@ -1,13 +1,14 @@
 // Open every tab of every dossier in index.html and report problems.
 //
-// Usage: node check_dossiers.js [screenshot-dir] [dossier-id]
+// Usage: docker compose --profile checks run --rm checks [dossier-id]
+// The checks container runs: node check_dossiers.js [screenshot-dir] [dossier-id]
 //
 // The script reads the dossiers and their tabs from the page, so new dossiers
 // are checked without changes here. It reports script errors, tabs that show the wrong
 // panel, and pages that scroll sideways at phone width in dark mode. With a
 // screenshot folder, it saves a full-page screenshot of each tab of the given
-// dossier (or of every dossier) at desktop width and at phone width. Write
-// screenshots to the scratchpad, not to the repository.
+// dossier (or of every dossier) at desktop width and at phone width. The
+// checks container writes screenshots to ./shots, which git ignores.
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');

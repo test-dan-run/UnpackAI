@@ -3,6 +3,9 @@
 
 Usage: python3 check_text.py index.html README.md
 
+The checks container runs the script on the page and the documentation, with
+docker compose --profile checks run --rm --build checks
+
 The script checks for dashes, middle dots, curly quotes, sentences that start
 with a demonstrative, negative parallelism, and words that the plain-writing
 skill lists as overused. It skips <style> blocks in HTML files. It does not

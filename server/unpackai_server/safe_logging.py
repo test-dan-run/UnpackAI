@@ -18,7 +18,7 @@ import logging
 import os
 import re
 
-QUIET_LOGGERS = ("anthropic", "anthropic._base_client", "httpx", "httpx2", "httpcore", "httpcore2", "hpack", "keyring")
+QUIET_LOGGERS = ("anthropic", "anthropic._base_client", "httpx", "httpx2", "httpcore", "httpcore2", "hpack")
 
 HEADER_PATTERN = re.compile(
     r"""(?ix)

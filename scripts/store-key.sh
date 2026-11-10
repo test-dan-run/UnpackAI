@@ -5,9 +5,8 @@
 #
 # The keychain tool asks for the key itself and hides what you type, so the
 # key isn't shown on screen, saved in the shell history, or passed as a
-# command argument. The entry uses the same service and account names as the
-# server's keychain source, so python -m unpackai_server.set_key and this
-# script write the same entry.
+# command argument. scripts/compose-up.sh reads the entry with the same service
+# and account names.
 set -euo pipefail
 
 SERVICE="unpackai"

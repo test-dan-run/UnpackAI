@@ -1,7 +1,7 @@
 """The UnpackAI HTTP server.
 
 The browser never sends or receives the API key. It calls these endpoints,
-and the server makes every call to Claude with the key from the secret store
+and the server makes every call to Claude with the key from the Docker secret
 (see secret_store.py).
 """
 from __future__ import annotations
@@ -23,9 +23,9 @@ from .unpack import REPO_ROOT, UnpackError, Unpacker, parse_source
 
 log = logging.getLogger("unpackai.http")
 
-DEFAULT_DB = Path(__file__).resolve().parents[1] / "data" / "unpackai.sqlite3"
+DEFAULT_DB = "/data/unpackai.sqlite3"  # the unpackai-data volume
 
-# Credentials can only come from the secret store. Removing the environment
+# Credentials can only come from the Docker secret. Removing the environment
 # variables stops the SDK from picking up a second credential.
 for _name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_LOG"):
     os.environ.pop(_name, None)
@@ -41,7 +41,7 @@ def create_app(db_path: str | Path | None = None, unpacker: Unpacker | None = No
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        db = unpacker.db if unpacker else Database(db_path or os.environ.get("UNPACKAI_DB", DEFAULT_DB))
+        db = unpacker.db if unpacker else Database(db_path or DEFAULT_DB)
         # A paper left "running" by a stopped server will never finish.
         for p in db.list_papers():
             if p["status"] in ("queued", "running"):
@@ -67,7 +67,7 @@ def create_app(db_path: str | Path | None = None, unpacker: Unpacker | None = No
 
     @app.get("/api/health")
     def health():
-        return {"ok": True, "secret_source": secret_store.source(), "api_key_configured": secret_store.key_is_configured()}
+        return {"ok": True, "api_key_configured": secret_store.key_is_configured()}
 
     @app.post("/api/unpack", status_code=202)
     def unpack(body: UnpackRequest, background: BackgroundTasks, request: Request):

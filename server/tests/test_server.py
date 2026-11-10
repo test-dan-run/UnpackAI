@@ -5,7 +5,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from conftest import DRAFT, FAKE_KEY
-from unpackai_server import secret_store
 from unpackai_server.app import create_app
 from unpackai_server.db import Database
 from unpackai_server.safe_logging import REDACTOR
@@ -13,8 +12,7 @@ from unpackai_server.unpack import parse_source
 
 
 @pytest.fixture
-def client(unpacker, fake_keyring):
-    secret_store.store_api_key(FAKE_KEY)
+def client(unpacker, stored_key):
     with TestClient(create_app(unpacker=unpacker)) as c:
         yield c
 
@@ -64,9 +62,8 @@ def test_unpack_stores_every_generated_item(client, fake_api):
     assert len(fake_api.requests) == 2
 
 
-def test_key_comes_from_keychain_and_never_reaches_logs_or_responses(unpacker, fake_keyring, fake_api, monkeypatch):
+def test_key_comes_from_docker_secret_and_never_reaches_logs_or_responses(unpacker, stored_key, fake_api, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_LOG", "debug")
-    secret_store.store_api_key(FAKE_KEY)
     app = create_app(unpacker=unpacker)
 
     # A plain handler without the redaction filter, at DEBUG, so the test
@@ -88,7 +85,7 @@ def test_key_comes_from_keychain_and_never_reaches_logs_or_responses(unpacker, f
     finally:
         root.removeHandler(handler)
 
-    # The SDK sent the key from the keychain to the API. SDK 2.x sends an API
+    # The SDK sent the key from the Docker secret to the API. SDK 2.x sends an API
     # key as "Authorization: Bearer", and older releases used "x-api-key".
     sent = fake_api.requests[0]["headers"]
     assert sent.get("authorization") == f"Bearer {FAKE_KEY}" or sent.get("x-api-key") == FAKE_KEY
@@ -100,7 +97,7 @@ def test_key_comes_from_keychain_and_never_reaches_logs_or_responses(unpacker, f
     assert "Request options" not in log_text
     for body in bodies:
         assert FAKE_KEY not in body
-    assert json.loads(bodies[0]) == {"ok": True, "secret_source": "keychain", "api_key_configured": True}
+    assert json.loads(bodies[0]) == {"ok": True, "api_key_configured": True}
 
 
 def test_redaction_filter_catches_headers_if_a_library_logs_them():
@@ -116,13 +113,13 @@ def test_redaction_filter_catches_headers_if_a_library_logs_them():
         assert FAKE_KEY not in clean and "abc.def.ghi" not in clean and "ABCDEFGHIJKLMNOP" not in clean, clean
 
 
-def test_missing_key_fails_the_unpack_with_a_clear_message(unpacker, fake_keyring, fake_api):
+def test_missing_key_fails_the_unpack_with_a_clear_message(unpacker, fake_api):
     with TestClient(create_app(unpacker=unpacker)) as c:
         assert c.get("/api/health").json()["api_key_configured"] is False
         pid = c.post("/api/unpack", json={"url": "2312.00752"}).json()["paper_id"]
         paper = c.get(f"/api/papers/{pid}").json()
     assert paper["status"] == "failed"
-    assert "python -m unpackai_server.set_key" in paper["error"]
+    assert "scripts/compose-up.sh" in paper["error"]
     assert fake_api.requests == []
 
 
@@ -157,7 +154,7 @@ def test_bad_source_is_a_400(client):
     assert client.post("/api/unpack", json={}).status_code == 400
 
 
-def test_unfinished_papers_are_marked_failed_on_restart(tmp_path, unpacker, fake_keyring):
+def test_unfinished_papers_are_marked_failed_on_restart(unpacker):
     db = unpacker.db
     pid, _ = db.upsert_paper("arxiv:1", "arxiv")
     db.set_status(pid, "running")
@@ -173,23 +170,13 @@ def test_dossier_versions_increase(tmp_path):
     assert db.latest_dossier(pid)["version"] == 2
 
 
-def test_docker_secret_source_reads_the_mounted_file(tmp_path, monkeypatch, unpacker, fake_api):
-    secret = tmp_path / "anthropic_api_key"
-    monkeypatch.setenv("UNPACKAI_SECRET_SOURCE", "docker-secret")
-    monkeypatch.setenv("UNPACKAI_SECRET_FILE", str(secret))
+def test_secret_written_after_start_is_read_on_the_next_unpack(unpacker, fake_api, secret_file):
     with TestClient(create_app(unpacker=unpacker)) as c:
-        assert c.get("/api/health").json() == {"ok": True, "secret_source": "docker-secret", "api_key_configured": False}
         pid = c.post("/api/unpack", json={"url": "2312.00752"}).json()["paper_id"]
-        assert "compose-up.sh" in c.get(f"/api/papers/{pid}").json()["error"]
+        assert c.get(f"/api/papers/{pid}").json()["status"] == "failed"
 
-        secret.write_text(FAKE_KEY + "\n")
+        secret_file.write_text(FAKE_KEY + "\n")
         assert c.get("/api/health").json()["api_key_configured"] is True
         assert c.post("/api/unpack", json={"url": "2312.00752"}).json()["queued"] is True
         assert c.get(f"/api/papers/{pid}").json()["status"] == "done"
     assert fake_api.requests[0]["headers"]["authorization"] == f"Bearer {FAKE_KEY}"
-
-
-def test_unknown_secret_source_is_reported(monkeypatch):
-    monkeypatch.setenv("UNPACKAI_SECRET_SOURCE", "env")
-    with pytest.raises(secret_store.SecretStoreError):
-        secret_store.read_api_key()

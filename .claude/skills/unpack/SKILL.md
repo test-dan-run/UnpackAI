@@ -119,14 +119,12 @@ Pick a short id of lowercase letters for the dossier, e.g., `mamba`, and a two-l
 
 ## Stage 4. Check and ship
 
-1. Check the writing.
-   - Read every paragraph you added against the plain-writing skill, e.g., the thesis, the novelty rows, the "What to notice" notes, and the claims.
-   - Run `python3 .claude/skills/unpack/scripts/check_text.py index.html README.md`, which checks the rules that a script can check, e.g., dashes and curly quotes. Fix every problem it reports.
-2. Check the page in a browser.
-   - Run `node .claude/skills/unpack/scripts/check_dossiers.js <scratchpad>/shots <id>`. The script opens every tab of every dossier, and it reports script errors, tabs that show the wrong panel, and pages that scroll sideways on a phone.
+1. Read every paragraph you added against the plain-writing skill, e.g., the thesis, the novelty rows, the "What to notice" notes, and the claims.
+2. Run the checks container from the repository root.
+   - Create the screenshot folder with `mkdir -p shots && chmod 777 shots`, because the container's user must be able to write to it. Git ignores the folder.
+   - Run `docker compose --profile checks run --rm --build checks <id>`. The `--build` option copies your changes into the image, and `<id>` limits the screenshots to the new dossier.
+   - The container first runs `check_text.py` on the page and the documentation. The script checks the rules that a script can check, e.g., dashes and curly quotes. The container then runs `check_dossiers.js`, which opens every tab of every dossier and reports script errors, tabs that show the wrong panel, and pages that scroll sideways on a phone. Fix every problem the checks report.
    - Look at the screenshots of the new dossier at desktop width and at phone width, and use each interactive control once.
-   - Keep screenshots in the scratchpad, not in the repository.
-   - If Docker is installed, you can run both checks in a container instead, with `docker compose --profile checks run --rm checks`.
 3. Update the documentation.
    - In `README.md`, update the count of complete dossiers.
    - If the paper type is new, add a row to the paper types table in `README.md` and to the table in the "Pick the paper type" section of the skill.

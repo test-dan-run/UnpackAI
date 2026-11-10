@@ -38,8 +38,6 @@ CMD ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider"]
 FROM base AS runtime
 # The database lives on a volume at /data. The API key comes from the Docker
 # secret at /run/secrets/anthropic_api_key, never from an environment variable.
-ENV UNPACKAI_DB=/data/unpackai.sqlite3 \
-    UNPACKAI_SECRET_SOURCE=docker-secret
 RUN mkdir -p /data && chown unpackai:unpackai /data
 VOLUME ["/data"]
 USER unpackai

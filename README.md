@@ -22,8 +22,6 @@ scripts/compose-up.sh
 
 Third, open http://127.0.0.1:8000 in a browser.
 
-To run the server without Docker, follow the steps in `server/README.md`. You can also open `index.html` directly in a browser, because the page doesn't need the server yet.
-
 ## Repository layout
 
 | Path | What it has |
@@ -37,7 +35,7 @@ To run the server without Docker, follow the steps in `server/README.md`. You ca
 
 ## Prototype page
 
-The file `index.html` is a clickable prototype, and you can open it in a browser without a build step. It has complete dossiers for three papers, one of each paper type, and the other library entries show how the list of papers would look.
+The file `index.html` is a clickable prototype, and the `app` container serves it at http://127.0.0.1:8000. It has complete dossiers for three papers, one of each paper type, and the other library entries show how the list of papers would look.
 
 The page has three parts:
 
@@ -67,7 +65,7 @@ The systems dossier has a roofline estimate that shows why standard attention is
 
 The server in `server/` makes every call to Claude, and it stores everything it generates in a SQLite database. You send it a source, e.g., an arXiv link, a PDF URL, a blog URL, or pasted text, and it makes two calls to Claude for the source. First, it fills in the dossier fields by following the unpack skill. Second, it rewrites every paragraph with the plain-writing skill. The server keeps the statuses, evidence labels, and numbers from the first call, so the rewrite can't change them.
 
-The database stores each paper, every call to Claude with its token counts and raw output, and each version of the dossier. The server reads the API key from a secret store, which is the OS keychain on your computer or a Docker secret in a container. It keeps the key and request headers out of its logs, and one of the tests checks the logs for the key. The API, the secret stores, and the logging rules are in `server/README.md`.
+The database stores each paper, every call to Claude with its token counts and raw output, and each version of the dossier. The server reads the API key from the Docker secret `/run/secrets/anthropic_api_key`. It keeps the key and request headers out of its logs, and one of the tests checks the logs for the key. The API, the database tables, and the logging rules are in `server/README.md`.
 
 ## Docker containers
 
@@ -76,8 +74,10 @@ Every part of the project runs in a container, and `compose.yaml` defines the co
 | Container | What it runs | Command |
 | --- | --- | --- |
 | `app` | The server, which also serves the page, with the database on the `unpackai-data` volume | `scripts/compose-up.sh` |
-| `test` | The server tests, with no network access | `docker compose --profile test run --rm test` |
-| `checks` | The text check and the browser check from the unpack skill, with no network access | `docker compose --profile checks run --rm checks` |
+| `test` | The server tests, with no network access | `docker compose --profile test run --rm --build test` |
+| `checks` | The text check and the browser check from the unpack skill, with no network access | `docker compose --profile checks run --rm --build checks` |
+
+Compose copies the page, the skills, and the server code into the images when it builds them. The `--build` option rebuilds the `test` and `checks` images, so the containers check your latest changes. `scripts/compose-up.sh` always rebuilds the `app` image.
 
 The API key reaches the `app` container as the Docker secret `/run/secrets/anthropic_api_key`. The key isn't written to a file on disk, and it isn't set as a variable in the container.
 
@@ -85,7 +85,7 @@ The `app` container is published on 127.0.0.1 only, so other computers can't rea
 
 The database stays on the `unpackai-data` volume when you stop or rebuild the containers. The command `docker compose down -v` deletes the volume and every stored dossier.
 
-The `checks` container saves a screenshot of every tab when the repository root has a `shots` folder that anyone can write to.
+The `checks` container saves a screenshot of every tab when the repository root has a `shots` folder that anyone can write to, e.g., after `mkdir -p shots && chmod 777 shots`. Add a dossier id after `checks` to save screenshots of only that dossier.
 
 On Windows, run the scripts in WSL or Git Bash. When neither `security` nor `secret-tool` is installed, the scripts use the Python `keyring` package.
 
@@ -99,7 +99,7 @@ Claude Code and the server both use the skills in `.claude/skills/`, so both of 
 
 The unpack skill in `.claude/skills/unpack/` has the steps that Claude Code follows for each new unpack request, e.g., "/unpack https://arxiv.org/abs/2312.00752". The skill tells Claude how to pick the paper type, fill in the dossier fields, choose interactive figures from the existing ones, and add the dossier to `index.html`. The server puts the skill in the prompt of its first call.
 
-The skill also has two check scripts, which you can run on their own or in the `checks` container:
+The skill also has two check scripts, and the `checks` container runs both of them:
 
 - `check_text.py` reports the plain-writing problems that a script can find, e.g., dashes, curly quotes, and sentences that start with a demonstrative pronoun.
 - `check_dossiers.js` opens every tab of every dossier in a browser, and it reports script errors, routing problems, and pages that scroll sideways on a phone.

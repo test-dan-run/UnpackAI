@@ -1,8 +1,9 @@
 # UnpackAI containers.
 #
 #   scripts/compose-up.sh                         start the server
-#   docker compose --profile test run --rm test   run the server tests
-#   docker compose --profile checks run --rm checks  run the page checks
+#   docker compose --profile test run --rm --build test     run the server tests
+#   docker compose --profile checks run --rm --build checks [dossier-id]
+#                                                           run the page checks
 #
 # The API key reaches the server only as the Docker secret
 # /run/secrets/anthropic_api_key. scripts/compose-up.sh reads the key from the
@@ -25,7 +26,6 @@ services:
       - source: anthropic_api_key
         target: anthropic_api_key
     environment:
-      UNPACKAI_SECRET_SOURCE: docker-secret
       UNPACKAI_MODEL: ${UNPACKAI_MODEL:-claude-opus-5-5}
     # The root filesystem isn't read-only, because Compose copies a secret
     # from an environment variable into the container. A secret from a file

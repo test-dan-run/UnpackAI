@@ -19,4 +19,5 @@ COPY index.html README.md CLAUDE.md ./
 COPY .claude/skills ./.claude/skills
 COPY server/README.md ./server/README.md
 USER pwuser
-CMD ["run-checks"]
+# Arguments after the service name go to the browser check, e.g., a dossier id.
+ENTRYPOINT ["run-checks"]
