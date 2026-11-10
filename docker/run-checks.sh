@@ -1,16 +1,20 @@
 #!/bin/sh
-# Run the page checks from the unpack skill inside the checks container.
+# Run the page and documentation checks inside the checks container.
 #
-# Usage: docker compose --profile checks run --rm checks [dossier-id]
+# Usage: docker compose --profile checks run --rm --build checks [dossier-id]
 #
+# First, the text check runs on the page and on every documentation file
+# except the copied plain-writing skill, whose examples break the rules on
+# purpose. Second, the browser check opens every tab of every dossier.
 # Screenshots go to /shots, which compose.yaml maps to ./shots on the host.
 # With a dossier id, only that dossier's tabs get screenshots.
 set -eu
 cd /app
-python3 .claude/skills/unpack/scripts/check_text.py \
-  index.html README.md CLAUDE.md server/README.md .claude/skills/unpack/SKILL.md
+find README.md AGENTS.md CLAUDE.md docs .claude/skills -name '*.md' \
+  -not -path '.claude/skills/plain-writing/*' -print0 \
+  | xargs -0 python3 src/server/unpackai_server/text_check.py src/web/index.html
 if [ -d /shots ] && [ -w /shots ]; then
-  node .claude/skills/unpack/scripts/check_dossiers.js /shots "$@"
+  node tests/web/check_dossiers.js /shots "$@"
 else
-  node .claude/skills/unpack/scripts/check_dossiers.js
+  node tests/web/check_dossiers.js
 fi

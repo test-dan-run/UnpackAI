@@ -1,6 +1,6 @@
-// Open every tab of every dossier in index.html and report problems.
+// Open every tab of every dossier in src/web/index.html and report problems.
 //
-// Usage: docker compose --profile checks run --rm checks [dossier-id]
+// Usage: docker compose --profile checks run --rm --build checks [dossier-id]
 // The checks container runs: node check_dossiers.js [screenshot-dir] [dossier-id]
 //
 // The script reads the dossiers and their tabs from the page, so new dossiers
@@ -13,7 +13,7 @@ const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
-const page_url = 'file://' + path.resolve(__dirname, '../../../../index.html');
+const page_url = 'file://' + path.resolve(__dirname, '../../src/web/index.html');
 const [outDir, onlyDoc] = process.argv.slice(2);
 
 (async () => {

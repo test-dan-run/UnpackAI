@@ -15,6 +15,7 @@ services:
   app:
     build:
       context: .
+      dockerfile: docker/app.Dockerfile
       target: runtime
     image: unpackai-app:local
     ports:
@@ -40,6 +41,7 @@ services:
     profiles: [test]
     build:
       context: .
+      dockerfile: docker/app.Dockerfile
       target: test
     image: unpackai-test:local
     network_mode: none

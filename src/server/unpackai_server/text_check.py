@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Flag the plain-writing rules that a script can check.
 
-Usage: python3 check_text.py index.html README.md
+Usage: python3 src/server/unpackai_server/text_check.py src/web/index.html README.md
 
-The checks container runs the script on the page and the documentation, with
+The server imports check_lines to check the paragraphs it generates. The
+checks container runs the script on the page and the documentation, with
 docker compose --profile checks run --rm --build checks
 
 The script checks for dashes, middle dots, curly quotes, sentences that start

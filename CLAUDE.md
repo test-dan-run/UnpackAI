@@ -1,23 +1,19 @@
 # Working rules for UnpackAI
 
+@AGENTS.md
+
+The rules below are only for Claude Code, and they add to the rules in `AGENTS.md`.
+
 ## Plain writing for every paragraph
 
-Every paragraph of prose in the project must go through the `/plain-writing` skill before you commit it or show it. The skill is in `.claude/skills/plain-writing/SKILL.md`. The rule covers the following text:
+Load the `/plain-writing` skill before you write or change any prose, and use it for every paragraph before you commit it or show it. The rule covers the following text:
 
-- The text and explanations in `index.html`, e.g., dossier text, "What to notice" notes, claims, and answers
-- Documentation, e.g., `README.md`
+- The text and explanations in `src/web/index.html`, e.g., dossier text, "What to notice" notes, claims, and answers
+- Documentation, e.g., `README.md`, `AGENTS.md`, and the files in `docs/`
 - Paragraphs that the app generates when it unpacks a paper
 
 If the skill doesn't load in a session, tell the user and stop. Don't rewrite the text in your own style and say that it went through the skill.
 
 ## Unpack requests
 
-Use the `/unpack` skill for every request to unpack a new paper or blog post, e.g., a pasted arXiv link with a request to explain it, or a request to add a dossier. The skill is in `.claude/skills/unpack/SKILL.md`, and it covers reading the source, planning the tabs and figures, building the dossier in `index.html`, and checking the result. If the skill doesn't load in a session, tell the user before you start.
-
-## Calls to Claude
-
-Every call to Claude in the app goes through `server/unpackai_server/unpack.py`. The server reads the API key with `secret_store.py` from the Docker secret `/run/secrets/anthropic_api_key`. Don't add code that reads the key from an environment variable, any other file, or a request header, and don't log request headers, query strings, or request bodies. Run the server tests with `docker compose --profile test run --rm --build test` after you change the server, because one test checks that the key never reaches the logs.
-
-## Containers
-
-Every part of the project runs in Docker, and `compose.yaml` defines the containers. Don't add a way to run the server, the tests, or the checks outside a container. When you add a dependency or a file that the server or the checks need at run time, add it to `Dockerfile` or `docker/checks.Dockerfile` too, and build and run the container to check it. Don't pass the API key to a container as an environment variable or a build argument, and don't copy it into an image.
+Use the `/unpack` skill for every request to unpack a new paper or blog post, e.g., a pasted arXiv link with a request to explain it, or a request to add a dossier. The skill covers reading the source, planning the tabs and figures, building the dossier in `src/web/index.html`, and checking the result. If the skill doesn't load in a session, tell the user before you start.

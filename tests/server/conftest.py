@@ -7,7 +7,8 @@ import anthropic
 import httpx2
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# tests/server/conftest.py, so the server package is in src/server.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src" / "server"))
 
 from unpackai_server.db import Database  # noqa: E402
 from unpackai_server.unpack import Unpacker  # noqa: E402

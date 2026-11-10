@@ -12,7 +12,6 @@ stored in the dossiers table.
 from __future__ import annotations
 
 import hashlib
-import importlib.util
 import json
 import logging
 import re
@@ -27,13 +26,15 @@ from .db import Database
 from .dossier_schema import DOSSIER_SCHEMA, ShapeMismatch, merge_prose, prose_values
 from .safe_logging import REDACTOR
 from .secret_store import read_api_key
+from .text_check import check_lines
 
 log = logging.getLogger("unpackai.unpack")
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+# src/server/unpackai_server/unpack.py, so the repository root is three folders up.
+REPO_ROOT = Path(__file__).resolve().parents[3]
+INDEX_HTML = REPO_ROOT / "src/web/index.html"
 PLAIN_WRITING_SKILL = REPO_ROOT / ".claude/skills/plain-writing/SKILL.md"
 UNPACK_SKILL = REPO_ROOT / ".claude/skills/unpack/SKILL.md"
-CHECK_TEXT = REPO_ROOT / ".claude/skills/unpack/scripts/check_text.py"
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 MAX_TOKENS = 64000
@@ -116,15 +117,6 @@ def _read(path: Path, what: str) -> str:
         return path.read_text(encoding="utf-8")
     except OSError:
         raise UnpackError(f"The {what} skill isn't at {path.relative_to(REPO_ROOT)}, so the unpack stopped.") from None
-
-
-def _load_check_text() -> Callable[..., list]:
-    spec = importlib.util.spec_from_file_location("unpackai_check_text", CHECK_TEXT)
-    if not spec or not spec.loader:
-        raise UnpackError("The text checker script is missing.")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.check_lines
 
 
 # ---------------------------------------------------------------- calls
@@ -242,7 +234,6 @@ class Unpacker:
             p = draft["paper"]
             self.db.set_metadata(paper_id, title=p["title"], org=p["org"], published=p["published"], paper_type=p["paper_type"])
             final = self.plain_writing(paper_id, draft)
-            check_lines = _load_check_text()
             problems = [
                 {"field": field, "problem": problem}
                 for field, text in prose_values(final)

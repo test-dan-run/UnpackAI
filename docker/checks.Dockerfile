@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #
-# The page checks from the unpack skill: the plain-writing text check and the
-# browser check of every dossier tab. The Playwright image has Chromium and
+# The checks from the unpack skill: the plain-writing text check of the page
+# and the documentation, and the browser check of every dossier tab. The Playwright image has Chromium and
 # its system libraries, and the playwright package version must match it.
 
 ARG PLAYWRIGHT_VERSION=1.63.0
@@ -15,9 +15,12 @@ WORKDIR /app
 RUN npm init -y >/dev/null && npm install --no-audit --no-fund "playwright@${PLAYWRIGHT_VERSION}"
 ENV NODE_PATH=/app/node_modules
 COPY docker/run-checks.sh /usr/local/bin/run-checks
-COPY index.html README.md CLAUDE.md ./
+COPY README.md AGENTS.md CLAUDE.md ./
+COPY docs ./docs
 COPY .claude/skills ./.claude/skills
-COPY server/README.md ./server/README.md
+COPY src/web ./src/web
+COPY src/server/unpackai_server/text_check.py ./src/server/unpackai_server/text_check.py
+COPY tests/web ./tests/web
 USER pwuser
 # Arguments after the service name go to the browser check, e.g., a dossier id.
 ENTRYPOINT ["run-checks"]

@@ -1,12 +1,13 @@
 # syntax=docker/dockerfile:1
 #
 # The UnpackAI server image. The build context is the repository root, because
-# the server serves index.html and reads the skills in .claude/skills at run
-# time. The layout inside the image matches the repository:
+# the server serves src/web/index.html and reads the skills in .claude/skills
+# at run time. The layout inside the image matches the repository:
 #
-#   /app/index.html
+#   /app/src/web/index.html
+#   /app/src/server/unpackai_server/...
 #   /app/.claude/skills/...
-#   /app/server/unpackai_server/...
+#   /app/tests/server/...        (test target only)
 #
 # Targets:
 #   runtime  the server (the default)
@@ -21,17 +22,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN groupadd --system --gid 10001 unpackai \
  && useradd --system --uid 10001 --gid unpackai --home-dir /app --shell /usr/sbin/nologin unpackai
-WORKDIR /app/server
-COPY server/requirements.txt ./
-RUN pip install -r requirements.txt
-COPY index.html /app/index.html
+COPY src/server/requirements.txt /app/src/server/requirements.txt
+RUN pip install -r /app/src/server/requirements.txt
+COPY src/web /app/src/web
 COPY .claude/skills /app/.claude/skills
-COPY server/unpackai_server ./unpackai_server
+COPY src/server/unpackai_server /app/src/server/unpackai_server
 
 FROM base AS test
-COPY server/requirements-dev.txt server/pytest.ini ./
-RUN pip install -r requirements-dev.txt
-COPY server/tests ./tests
+COPY tests/server /app/tests/server
+RUN pip install -r /app/tests/server/requirements.txt
+WORKDIR /app/tests/server
 USER unpackai
 CMD ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider"]
 
@@ -40,6 +40,7 @@ FROM base AS runtime
 # secret at /run/secrets/anthropic_api_key, never from an environment variable.
 RUN mkdir -p /data && chown unpackai:unpackai /data
 VOLUME ["/data"]
+WORKDIR /app/src/server
 USER unpackai
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

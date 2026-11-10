@@ -1,17 +1,17 @@
 ---
 name: unpack
-description: Unpacks a new AI research paper or lab blog post into a dossier in the UnpackAI prototype (index.html). Use for every unpack request, e.g., "/unpack <arXiv link>", "unpack this paper", "add a dossier for <paper>", or a pasted arXiv link, blog URL, or PDF with a request to explain it in UnpackAI. Don't use it for layout changes to the app that don't add a paper.
+description: Unpacks a new AI research paper or lab blog post into a dossier in the UnpackAI prototype (src/web/index.html). Use for every unpack request, e.g., "/unpack <arXiv link>", "unpack this paper", "add a dossier for <paper>", or a pasted arXiv link, blog URL, or PDF with a request to explain it in UnpackAI. Don't use it for layout changes to the app that don't add a paper.
 ---
 
 # Unpack a paper into a dossier
 
-An unpack request asks for a new dossier in `index.html` for one paper or blog post. The dossier explains what is new in the work and what the work reuses from earlier work, and it shows how well the evidence supports each claim. Work through the four stages below in order, and don't skip the checks in the last stage.
+An unpack request asks for a new dossier in `src/web/index.html` for one paper or blog post. The dossier explains what is new in the work and what the work reuses from earlier work, and it shows how well the evidence supports each claim. Work through the four stages below in order, and don't skip the checks in the last stage.
 
 ## Before you start
 
 Load the `/plain-writing` skill, because `CLAUDE.md` requires it for every paragraph in a dossier. If the skill doesn't load, tell the user and stop.
 
-Read the existing dossier that is closest to the new paper, because the new dossier copies its structure. The prototype has one example of each paper type:
+Read `AGENTS.md`, the page section of `docs/repository-map.md`, and the examples in `docs/examples/`. Then read the existing dossier that is closest to the new paper, because the new dossier copies its structure. The prototype has one example of each paper type:
 
 - DeepSeek-V3 (`data-doc="dsv3"`) is the model paper.
 - FineWeb (`data-doc="fineweb"`) is the dataset paper.
@@ -123,11 +123,12 @@ Pick a short id of lowercase letters for the dossier, e.g., `mamba`, and a two-l
 2. Run the checks container from the repository root.
    - Create the screenshot folder with `mkdir -p shots && chmod 777 shots`, because the container's user must be able to write to it. Git ignores the folder.
    - Run `docker compose --profile checks run --rm --build checks <id>`. The `--build` option copies your changes into the image, and `<id>` limits the screenshots to the new dossier.
-   - The container first runs `check_text.py` on the page and the documentation. The script checks the rules that a script can check, e.g., dashes and curly quotes. The container then runs `check_dossiers.js`, which opens every tab of every dossier and reports script errors, tabs that show the wrong panel, and pages that scroll sideways on a phone. Fix every problem the checks report.
+   - The container first runs `src/server/unpackai_server/text_check.py` on the page and the documentation. The script checks the rules that a script can check, e.g., dashes and curly quotes. The container then runs `tests/web/check_dossiers.js`, which opens every tab of every dossier and reports script errors, tabs that show the wrong panel, and pages that scroll sideways on a phone. Fix every problem the checks report.
    - Look at the screenshots of the new dossier at desktop width and at phone width, and use each interactive control once.
 3. Update the documentation.
-   - In `README.md`, update the count of complete dossiers.
-   - If the paper type is new, add a row to the paper types table in `README.md` and to the table in the "Pick the paper type" section of the skill.
+   - In `docs/architecture.md`, add the dossier to the "Dossier structure" section, with a short paragraph about its figures.
+   - If the paper type is new, add a row to the paper type tables in `docs/architecture.md` and in the "Pick the paper type" section of the skill.
+   - If the dossier has a new kind of figure, add a row to the figure table in the skill.
 4. Commit the change, and push it to the working branch. If the user has published the prototype as an artifact, publish the new version to the same URL.
 
 ## Reply to the user

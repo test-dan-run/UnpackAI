@@ -1,0 +1,103 @@
+# Repository map
+
+The repository follows the layout in [How I Structure Repositories So AI Can Actually Understand Them](https://suyogjoshi.com/writing/how-i-structure-repositories-so-ai-can-understand-them/), and ADR 009 records the choice. The application code is in `src/`, the tests are in `tests/`, and the documentation is in `docs/`.
+
+```
+UnpackAI/
+|-- README.md                 What the app is for, and how to start it
+|-- AGENTS.md                 Rules for AI agents that change the repository
+|-- CLAUDE.md                 Loads AGENTS.md for Claude Code, plus the skill rules
+|-- compose.yaml              The app, test, and checks containers
+|
+|-- docs/
+|   |-- architecture.md       How the page, the server, and the containers fit together
+|   |-- repository-map.md     This file
+|   |-- coding-standards.md   How to write the prose and the code
+|   |-- adr/                  One file for each design decision
+|   `-- examples/             Examples from the project to copy for new work
+|
+|-- src/
+|   |-- web/
+|   |   `-- index.html        The prototype page, with every dossier
+|   `-- server/
+|       |-- requirements.txt  The server's Python packages
+|       `-- unpackai_server/  The server package
+|
+|-- tests/
+|   |-- server/               The server tests, run in the test container
+|   `-- web/
+|       `-- check_dossiers.js The browser check, run in the checks container
+|
+|-- scripts/
+|   |-- store-key.sh          Stores the API key in the host keychain
+|   `-- compose-up.sh         Starts the app container with the key as a Docker secret
+|
+|-- docker/
+|   |-- app.Dockerfile        The image for the app and test containers
+|   |-- checks.Dockerfile     The image for the checks container
+|   `-- run-checks.sh         The command that the checks container runs
+|
+`-- .claude/skills/
+    |-- unpack/SKILL.md       The steps for unpacking a paper into a dossier
+    `-- plain-writing/        The plain-writing rules, copied with their license
+```
+
+## The page
+
+`src/web/index.html` holds the whole page, in this order:
+
+- The `<style>` block, which starts with the color tokens on `:root` and the dark mode tokens. The CSS for the dataset and systems dossiers comes before `@media (max-width:1100px)`.
+- The header with the command bar, and the library in `<aside class="library">`.
+- `<main class="dossier" id="dossier">`, with one `<div class="doc" data-doc="<id>">` for each dossier. Each one has a paper head, a `nav.tabs`, and one `section.panel[data-panel]` for each tab.
+- The `<script>` block. It starts with the library data in `LIB`, the routing in `DOCS`, `parseHash()`, and `showTab()`, and the shared helpers `noveltyRows()`, `claimsHTML()`, `detailHTML()`, and `makeSeg()`. Then it has one block for each dossier, and every name in a block starts with the dossier's prefix, e.g., `FW_` and `fw` for FineWeb.
+
+## The server package
+
+| File | What it does |
+| --- | --- |
+| `__main__.py` | Starts uvicorn with the safe log setup |
+| `app.py` | Defines the HTTP endpoints, serves the page, and writes the request log |
+| `unpack.py` | Parses sources and makes every call to Claude, with the two prompts |
+| `dossier_schema.py` | Defines the JSON schema of a dossier, and merges the rewritten prose into the draft |
+| `db.py` | Creates the SQLite tables, and reads and writes papers, generations, and dossiers |
+| `secret_store.py` | Reads the API key from the Docker secret |
+| `safe_logging.py` | Caps the library loggers, and redacts the key and auth headers in every log handler |
+| `text_check.py` | Checks text for the plain-writing rules that a script can check. The server imports it, and the checks container runs it as a script. |
+
+## The tests
+
+| File | What it has |
+| --- | --- |
+| `tests/server/conftest.py` | The fake Claude API, the temporary Docker secret file, and the example dossier draft |
+| `tests/server/test_server.py` | The tests for the endpoints, the unpack steps, the secret, and the logs |
+| `tests/server/requirements.txt` | The server packages plus pytest |
+| `tests/web/check_dossiers.js` | Opens every tab of every dossier and reports problems |
+
+## Decisions
+
+| ADR | Decision |
+| --- | --- |
+| [001](adr/001-single-file-prototype-page.md) | The prototype is one HTML file with no build step |
+| [002](adr/002-plain-writing-for-all-prose.md) | Every paragraph follows the plain-writing skill |
+| [003](adr/003-dossier-tabs-follow-the-paper-type.md) | The paper type sets the tabs of a dossier |
+| [004](adr/004-server-makes-every-claude-call.md) | The server makes every call to Claude, in two calls per paper |
+| [005](adr/005-sqlite-for-generated-items.md) | SQLite stores everything the server generates |
+| [006](adr/006-api-key-from-a-docker-secret.md) | The API key reaches the server as a Docker secret from the host keychain |
+| [007](adr/007-no-secrets-or-headers-in-logs.md) | The logs never contain the key or request headers |
+| [008](adr/008-docker-only.md) | Every part of the project runs in Docker |
+| [009](adr/009-repository-layout-for-people-and-ai-agents.md) | The repository follows a layout with documentation for people and AI agents |
+
+## Where new work goes
+
+| Change | Where it goes |
+| --- | --- |
+| A dossier for a new paper | `src/web/index.html`, by following `.claude/skills/unpack/SKILL.md` |
+| A new paper type | The paper type tables in `.claude/skills/unpack/SKILL.md` and `docs/architecture.md` |
+| A new kind of interactive figure | `src/web/index.html`, and a row in the figure table of the unpack skill |
+| A new endpoint | `src/server/unpackai_server/app.py`, with a test in `tests/server/test_server.py` |
+| A change to how the server calls Claude | `src/server/unpackai_server/unpack.py` |
+| A new dossier field | `src/server/unpackai_server/dossier_schema.py`, and `PROSE_FIELDS` if the field is prose |
+| A new table or column | `src/server/unpackai_server/db.py`. Raise `SCHEMA_VERSION`, and add a step that changes databases that already exist, because `CREATE TABLE IF NOT EXISTS` doesn't add columns. |
+| A new Python package for the server | `src/server/requirements.txt` |
+| A new file that a container needs | The `COPY` lines in `docker/app.Dockerfile` or `docker/checks.Dockerfile` |
+| A new design decision | A new file in `docs/adr/`, and a row in the table above |

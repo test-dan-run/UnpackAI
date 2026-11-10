@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from .db import Database
 from .safe_logging import configure_logging
 from . import secret_store
-from .unpack import REPO_ROOT, UnpackError, Unpacker, parse_source
+from .unpack import INDEX_HTML, UnpackError, Unpacker, parse_source
 
 log = logging.getLogger("unpackai.http")
 
@@ -63,7 +63,7 @@ def create_app(db_path: str | Path | None = None, unpacker: Unpacker | None = No
 
     @app.get("/")
     def index():
-        return FileResponse(REPO_ROOT / "index.html")
+        return FileResponse(INDEX_HTML)
 
     @app.get("/api/health")
     def health():
