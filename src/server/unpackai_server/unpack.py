@@ -30,6 +30,7 @@ from .dossier_schema import (
     DOSSIER_SCHEMA,
     ShapeMismatch,
     apply_links,
+    clean_figures,
     merge_prose,
     prose_values,
     without_links,
@@ -109,6 +110,13 @@ Rules for the fields:
 - Each novelty and claim names the tab id that explains it in "where".
 - Set uses_made_up_values to true when a figure needs example values that the source doesn't give.
 
+Rules for the figure data. The page can't run code from you, so it draws each figure from a fixed template that you fill with numbers:
+- Fill "data" for each figure with the template that fits it best. Use "comparison" for results of several methods on the same metrics, "calculator" for a size or a cost that you get by multiplying the inputs, "timeline" for a schedule over training steps or tokens, "steps" for a pipeline or a calculation done step by step, and "threshold" for a score threshold that keeps or drops items. Set data to null when no template fits the figure.
+- Every number in the data comes from the source, and "source" names the section, table, or figure. When a template needs example values that the source doesn't give, e.g., example items for a threshold, set uses_made_up_values to true. For a calculator input that the source doesn't give, set from_paper to false.
+- A calculator output is the constant times each input raised to its power. For example, a cache size in bytes of layers times tokens times 2 bytes has a power of 1 for both inputs and a constant of 2. Use powers from -4 to 4, and give each input the values from the source as its choices.
+- In a comparison, mark the method that the source presents as new with is_new, and use null for a value that the source doesn't report.
+- Keep names and labels short, e.g., a method or a metric name, and write the explanation in the text of each step and in what_to_notice.
+
 <unpack_skill>
 {unpack_skill}
 </unpack_skill>"""
@@ -128,7 +136,7 @@ Rules for the links:
 
 PLAIN_SYSTEM = """You edit the text of UnpackAI dossiers so it follows the plain-writing skill below.
 
-You get a dossier as JSON. Rewrite the prose fields so each one follows the skill, and return the whole dossier in the same shape. The prose fields are the thesis, the highlights, and the title, label, lede, what, replaces, why, heading, text, what_to_notice, and meaning fields, and the not_disclosed items.
+You get a dossier as JSON. Rewrite the prose fields so each one follows the skill, and return the whole dossier in the same shape. The prose fields are the thesis, the highlights, and the title, label, lede, what, replaces, why, heading, text, what_to_notice, and meaning fields, the not_disclosed items, and the text of each step in a figure's data.
 
 Keep these things exactly as they are:
 - Every value that isn't a prose field, e.g., a status, an evidence label, a tab id, a number, or a URL
@@ -291,7 +299,9 @@ class Unpacker:
         self.db.set_status(paper_id, "running")
         try:
             self.last_step[paper_id] = "extract"
-            draft = self.extract(paper_id, source)
+            # Figure data that the page couldn't draw is set to null here, so
+            # the later calls and the stored dossier only have data that works.
+            draft = clean_figures(self.extract(paper_id, source))
             p = draft["paper"]
             self.db.set_metadata(paper_id, title=p["title"], org=p["org"], published=p["published"], paper_type=p["paper_type"])
             self.last_step[paper_id] = "compare"

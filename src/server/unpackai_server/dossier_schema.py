@@ -10,9 +10,18 @@ dossiers. apply_links() adds each link to its novelty as an "earlier" field,
 which isn't in DOSSIER_SCHEMA because the extract call doesn't fill it in. A
 link holds no new prose. It names the earlier paper and copies the earlier
 idea's text, which already went through the plain-writing pass.
+
+Each figure can carry "data" for one of the figure templates in
+FIGURE_TEMPLATES, and the page draws the figure from it. The data holds
+numbers and short labels from the paper, never HTML or code, so the page can
+escape every value. clean_figures() checks the parts that the JSON schema
+can't check, e.g., that each method has one value for each metric, and it
+sets the data to null when the page couldn't draw it. A figure without data
+shows only its title and its "What to notice" note.
 """
 from __future__ import annotations
 
+import math
 from typing import Any
 
 PAPER_TYPES = ["model", "dataset", "systems", "other"]
@@ -41,6 +50,10 @@ FIGURE_KINDS = [
 ]
 
 
+def _nullable(schema: dict[str, Any]) -> dict[str, Any]:
+    return {"anyOf": [schema, {"type": "null"}]}
+
+
 def _obj(props: dict[str, Any]) -> dict[str, Any]:
     return {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}
 
@@ -50,6 +63,49 @@ def _arr(items: dict[str, Any]) -> dict[str, Any]:
 
 
 S = {"type": "string"}
+N = {"type": "number"}
+
+
+def _template(name: str, props: dict[str, Any]) -> dict[str, Any]:
+    return _obj({"template": {"type": "string", "enum": [name]}, **props, "source": S})
+
+
+# The figure templates that the page can draw. "source" names the section,
+# table, or figure of the paper that the numbers come from.
+FIGURE_TEMPLATES: dict[str, dict[str, Any]] = {
+    # Bars for each method on one metric at a time, with buttons for the metric.
+    "comparison": _template("comparison", {
+        "metrics": _arr(_obj({"name": S, "unit": S, "higher_is_better": {"type": "boolean"}})),
+        "methods": _arr(_obj({"name": S, "is_new": {"type": "boolean"}, "values": _arr(_nullable(N))})),
+    }),
+    # Sliders for the inputs. Each output is constant * product(input ** power).
+    "calculator": _template("calculator", {
+        "inputs": _arr(_obj({"name": S, "unit": S, "choices": _arr(N), "default_index": {"type": "integer"}, "from_paper": {"type": "boolean"}})),
+        "outputs": _arr(_obj({"name": S, "unit": S, "constant": N, "powers": _arr(N)})),
+    }),
+    # A value over time in phases, e.g., a learning rate schedule, with a slider for the time.
+    "timeline": _template("timeline", {
+        "x_name": S,
+        "x_unit": S,
+        "y_name": S,
+        "y_unit": S,
+        "phases": _arr(_obj({"label": S, "start": N, "end": N, "start_value": N, "end_value": N, "shape": {"type": "string", "enum": ["constant", "linear", "cosine"]}})),
+    }),
+    # A sequence of steps that the reader moves through, with an optional value per step.
+    "steps": _template("steps", {
+        "value_name": S,
+        "value_unit": S,
+        "steps": _arr(_obj({"label": S, "text": S, "value": _nullable(N), "details": _arr(_obj({"label": S, "value": S}))})),
+    }),
+    # Example items with a score, and a slider for the threshold that keeps or drops them.
+    "threshold": _template("threshold", {
+        "score_name": S,
+        "keep_when": {"type": "string", "enum": ["at_least", "at_most"]},
+        "thresholds": _arr(N),
+        "default_index": {"type": "integer"},
+        "items": _arr(_obj({"label": S, "score": N})),
+    }),
+}
 
 DOSSIER_SCHEMA: dict[str, Any] = _obj(
     {
@@ -96,6 +152,7 @@ DOSSIER_SCHEMA: dict[str, Any] = _obj(
                     "title": S,
                     "what_to_notice": S,
                     "uses_made_up_values": {"type": "boolean"},
+                    "data": _nullable({"anyOf": list(FIGURE_TEMPLATES.values())}),
                 }
             )
         ),
@@ -137,6 +194,7 @@ PROSE_FIELDS = [
     "figures[].what_to_notice",
     "numbers[].meaning",
     "not_disclosed[]",
+    "figures[].data.steps[].text",
 ]
 
 
@@ -145,11 +203,19 @@ class ShapeMismatch(ValueError):
 
 
 def _get_all(doc: Any, parts: list[str]) -> list[tuple[list, str | int]]:
-    """Return (container, key) pairs for every value at the path."""
+    """Return (container, key) pairs for every value at the path.
+
+    A null or missing value on the path has no values under it, e.g., a figure
+    without data, or figure data from a template without steps.
+    """
+    if doc is None:
+        return []
     head, rest = parts[0], parts[1:]
     if head.endswith("[]"):
         name = head[:-2]
-        lst = doc[name] if name else doc
+        lst = doc.get(name) if name else doc
+        if lst is None:
+            return []
         if not rest:
             return [(lst, i) for i in range(len(lst))]
         out = []
@@ -158,7 +224,7 @@ def _get_all(doc: Any, parts: list[str]) -> list[tuple[list, str | int]]:
         return out
     if not rest:
         return [(doc, head)]
-    return _get_all(doc[head], rest)
+    return _get_all(doc.get(head), rest)
 
 
 def merge_prose(original: dict, rewritten: dict) -> dict:
@@ -240,11 +306,28 @@ def shape_problem(value: Any, schema: dict[str, Any], path: str = "") -> str | N
     """Return the first place where the value doesn't match the schema, or None.
 
     The check covers the parts of JSON schema that DOSSIER_SCHEMA uses, i.e.,
-    objects with required keys and no other keys, arrays, strings, integers,
-    booleans, and enums. The server uses it on dossiers from export files,
-    because those dossiers didn't come from a call with structured output.
+    objects with required keys and no other keys, arrays, strings, numbers,
+    integers, booleans, null, enums, and anyOf. The server uses it on dossiers
+    from export files, because those dossiers didn't come from a call with
+    structured output.
     """
     where = path or "the dossier"
+    if "anyOf" in schema:
+        subs = schema["anyOf"]
+        if value is None and any(sub.get("type") == "null" for sub in subs):
+            return None
+        subs = [sub for sub in subs if sub.get("type") != "null"]
+        if len(subs) == 1:
+            return shape_problem(value, subs[0], path)
+        # Figure data names its template, so the server checks the data
+        # against that template and reports the problem with it.
+        if isinstance(value, dict):
+            named = [sub for sub in subs if value.get("template") in sub.get("properties", {}).get("template", {}).get("enum", [])]
+            if named:
+                return shape_problem(value, named[0], path)
+        if all(shape_problem(value, sub, path) for sub in subs):
+            return f"{where} doesn't match any of the allowed shapes"
+        return None
     t = schema.get("type")
     if t == "object":
         if not isinstance(value, dict):
@@ -274,6 +357,88 @@ def shape_problem(value: Any, schema: dict[str, Any], path: str = "") -> str | N
         return f"{where} must be true or false"
     if t == "integer" and (not isinstance(value, int) or isinstance(value, bool)):
         return f"{where} must be a whole number"
+    if t == "number" and (not isinstance(value, (int, float)) or isinstance(value, bool)):
+        return f"{where} must be a number"
+    if t == "null" and value is not None:
+        return f"{where} must be null"
     if "enum" in schema and value not in schema["enum"]:
         return f"{where} must be one of {', '.join(schema['enum'])}"
     return None
+
+
+# Limits that keep a figure readable on a phone. A figure over a limit has
+# its data set to null.
+FIGURE_LIMITS = {"metrics": 8, "methods": 12, "inputs": 6, "outputs": 6, "choices": 24, "phases": 12, "steps": 16, "details": 8, "thresholds": 24, "items": 40}
+MAX_POWER = 4
+
+
+def figure_data_problem(data: dict) -> str | None:
+    """Return why the page couldn't draw the figure data, or None."""
+    t = data["template"]
+
+    def finite(*values: Any) -> bool:
+        return all(isinstance(v, (int, float)) and math.isfinite(v) for v in values)
+
+    def sized(name: str, items: list, least: int = 1) -> str | None:
+        if len(items) < least:
+            return f"it needs at least {least} {name}"
+        if len(items) > FIGURE_LIMITS[name]:
+            return f"it has more than {FIGURE_LIMITS[name]} {name}"
+        return None
+
+    if t == "comparison":
+        problem = sized("metrics", data["metrics"]) or sized("methods", data["methods"], 2)
+        if problem:
+            return problem
+        for m in data["methods"]:
+            if len(m["values"]) != len(data["metrics"]):
+                return f"{m['name']!r} doesn't have one value for each metric"
+            if not finite(*(v for v in m["values"] if v is not None)):
+                return "a value isn't a finite number"
+    elif t == "calculator":
+        problem = sized("inputs", data["inputs"]) or sized("outputs", data["outputs"])
+        if problem:
+            return problem
+        for i in data["inputs"]:
+            problem = sized("choices", i["choices"])
+            if problem:
+                return problem
+            if not finite(*i["choices"]) or not 0 <= i["default_index"] < len(i["choices"]):
+                return f"the input {i['name']!r} has a bad choice or default"
+        for o in data["outputs"]:
+            if len(o["powers"]) != len(data["inputs"]):
+                return f"the output {o['name']!r} doesn't have one power for each input"
+            if not finite(o["constant"], *o["powers"]) or any(abs(p) > MAX_POWER for p in o["powers"]):
+                return f"the output {o['name']!r} has a bad constant or power"
+    elif t == "timeline":
+        problem = sized("phases", data["phases"])
+        if problem:
+            return problem
+        for p in data["phases"]:
+            if not finite(p["start"], p["end"], p["start_value"], p["end_value"]) or p["end"] <= p["start"]:
+                return f"the phase {p['label']!r} has bad numbers"
+    elif t == "steps":
+        problem = sized("steps", data["steps"], 2)
+        if problem:
+            return problem
+        for st in data["steps"]:
+            if sized("details", st["details"], 0) or (st["value"] is not None and not finite(st["value"])):
+                return f"the step {st['label']!r} has too many details or a bad value"
+    elif t == "threshold":
+        problem = sized("thresholds", data["thresholds"]) or sized("items", data["items"], 2)
+        if problem:
+            return problem
+        if not finite(*data["thresholds"], *(i["score"] for i in data["items"])) or not 0 <= data["default_index"] < len(data["thresholds"]):
+            return "a threshold, a score, or the default isn't valid"
+    return None
+
+
+def clean_figures(dossier: dict) -> dict:
+    """Return a copy of the dossier where every figure has a "data" field the page can draw, or null."""
+    import copy
+
+    out = copy.deepcopy(dossier)
+    for f in out["figures"]:
+        data = f.get("data")
+        f["data"] = data if data is not None and figure_data_problem(data) is None else None
+    return out

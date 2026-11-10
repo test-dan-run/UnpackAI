@@ -5,7 +5,8 @@
 // The fake server has four papers. Paper 1 is done, and its title holds
 // HTML, so the check can test that the page escapes text from the server.
 // Its ideas link to the ideas of paper 4, an earlier paper that is also done.
-// Paper 2 is in the plain-writing step, and paper 3 failed. Paper 4 came from
+// Paper 1 has one figure for each figure template, and one figure from before
+// figure data, which has no data field. Paper 2 is in the plain-writing step, and paper 3 failed. Paper 4 came from
 // an export file, and one of its ideas links to a paper that isn't in the
 // library, so the link has no paper id.
 const fs = require('fs');
@@ -15,6 +16,7 @@ const INDEX = path.resolve(__dirname, '../../src/web/index.html');
 const ORIGIN = 'http://unpackai.test';
 const XSS_TITLE = 'Selective state spaces <img src=x onerror="window.__xss=1">';
 const S4_TITLE = 'Efficiently Modeling Long Sequences with Structured State Spaces';
+const XSS_METHOD = 'Transformer <img src=x onerror="window.__xss=2">';
 
 const DOSSIER = {
   paper: { title: XSS_TITLE, org: 'CMU and Princeton', published: 'Dec 2023', source_url: 'https://arxiv.org/pdf/2312.00752', paper_type: 'model' },
@@ -38,6 +40,28 @@ const DOSSIER = {
   ],
   figures: [
     { tab: 'architecture', kind: 'block_loop_animation', title: 'The scan over the sequence', what_to_notice: 'The scan reads each token once.', uses_made_up_values: true },
+    { tab: 'overview', kind: 'method_comparison_simulation', title: 'Mamba against Transformers', what_to_notice: 'Mamba is faster at the same quality.', uses_made_up_values: false,
+      data: { template: 'comparison', source: 'Figure 8 and Table 3', metrics: [
+        { name: 'Inference throughput', unit: 'tokens/s', higher_is_better: true }, { name: 'Perplexity', unit: '', higher_is_better: false }],
+        methods: [{ name: 'Mamba', is_new: true, values: [5000, 8.1] }, { name: XSS_METHOD, is_new: false, values: [1000, 8.4] }, { name: 'Hyena', is_new: false, values: [null, 9.2] }] } },
+    { tab: 'architecture', kind: 'memory_calculator', title: 'State size against KV cache size', what_to_notice: 'The state doesn\'t grow with the context.', uses_made_up_values: true,
+      data: { template: 'calculator', source: 'Section 3', inputs: [
+        { name: 'Layers', unit: '', choices: [48], default_index: 0, from_paper: true },
+        { name: 'Context', unit: 'tokens', choices: [2048, 8192, 32768], default_index: 0, from_paper: true },
+        { name: 'State size', unit: '', choices: [16], default_index: 0, from_paper: false }],
+        outputs: [{ name: 'Mamba state', unit: 'bytes', constant: 10240, powers: [1, 0, 1] }, { name: 'Attention KV cache', unit: 'bytes', constant: 10240, powers: [1, 1, 0] }] } },
+    { tab: 'architecture', kind: 'worked_example', title: 'One step of the selective scan', what_to_notice: 'The input sets how much of the state to keep.', uses_made_up_values: false,
+      data: { template: 'steps', source: 'Algorithm 2', value_name: 'Numbers read from memory', value_unit: '', steps: [
+        { label: 'Load the input', text: 'The kernel loads the input and the parameters into fast memory.', value: 4096, details: [{ label: 'Memory', value: 'SRAM' }] },
+        { label: 'Discretize', text: 'The kernel turns the parameters into the discrete form for the step.', value: 2048, details: [] },
+        { label: 'Scan', text: 'The kernel runs the scan and writes only the output.', value: 1024, details: [] }] } },
+    { tab: 'evidence', kind: 'schedule_timeline', title: 'Learning rate schedule', what_to_notice: 'The rate rises fast and then decays slowly.', uses_made_up_values: false,
+      data: { template: 'timeline', source: 'Appendix E', x_name: 'Tokens', x_unit: 'B', y_name: 'Learning rate', y_unit: '', phases: [
+        { label: 'Warmup', start: 0, end: 10, start_value: 0, end_value: 0.0006, shape: 'linear' },
+        { label: 'Decay', start: 10, end: 300, start_value: 0.0006, end_value: 0.00006, shape: 'cosine' }] } },
+    { tab: 'evidence', kind: 'threshold_tester', title: 'Filter by sequence length', what_to_notice: 'A higher threshold keeps fewer examples.', uses_made_up_values: true,
+      data: { template: 'threshold', source: 'Section 4.1', score_name: 'Sequence length', keep_when: 'at_least', thresholds: [256, 1024, 4096], default_index: 0, items: [
+        { label: 'Short story', score: 300 }, { label: 'Book chapter', score: 5000 }, { label: 'Code file', score: 1200 }, { label: 'Tweet', score: 40 }] } },
   ],
   numbers: [{ value: '5x', meaning: 'Inference throughput compared with Transformers', source: 'Section 4.5' }],
   not_disclosed: ['The exact data mix'],

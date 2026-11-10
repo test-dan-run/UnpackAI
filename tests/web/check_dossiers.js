@@ -61,6 +61,59 @@ async function checkTabs(page, v, label, mode) {
   return docs;
 }
 
+// Check that each figure template draws its figure and reacts to its controls.
+async function checkFigures(page, v, label) {
+  const expect = (ok, what) => { if (!ok) problems.push(`${label}: ${what}`); };
+  const fig = '.doc[data-doc="p1"] [data-gen-fig]';
+  const drawn = await page.$$eval(`${fig} .gen-fig-body`, els => els.map(e => e.children.length > 0));
+  expect(drawn.length === 5 && drawn.every(Boolean), `the page drew [${drawn}] of 5 figures with data`);
+  const eyebrows = await page.$$eval(`${fig} .eyebrow`, els => els.map(e => e.textContent));
+  expect(eyebrows.filter(t => t === 'Suggested figure, not built yet').length === 1, 'the figure without data isn\'t shown as a suggestion');
+  const byTitle = t => page.evaluate(t => [...document.querySelectorAll('.doc[data-doc="p1"] [data-gen-fig]')].find(e => e.querySelector('h3').textContent === t).dataset.genFig, t);
+  const read = async (t, sel) => page.evaluate(([i, s]) => (document.querySelector(`.doc[data-doc="p1"] [data-gen-fig="${i}"] ${s}`) || {}).textContent || '', [await byTitle(t), sel]);
+  const act = async (t, sel, how) => page.evaluate(([i, s, h]) => {
+    const e = document.querySelector(`.doc[data-doc="p1"] [data-gen-fig="${i}"] ${s}`);
+    if (h === 'click') e.click(); else { e.value = h; e.dispatchEvent(new Event('input')); }
+  }, [await byTitle(t), sel, how]);
+
+  // Comparison: the new method is 400% higher on throughput, and lower is better for perplexity.
+  let t = await read('Mamba against Transformers', '.gen-read');
+  expect(t.includes('Mamba is 400% higher than'), `the comparison says "${t}"`);
+  await act('Mamba against Transformers', '.seg button[data-i="1"]', 'click');
+  t = await read('Mamba against Transformers', '.gen-read');
+  expect(t.startsWith('Lower values are better for Perplexity.') && t.includes('3.57% lower') && t.includes('so it is better'), `after a metric change, the comparison says "${t}"`);
+
+  // Calculator: 48 layers x 2,048 tokens x 10,240 bytes is 1.007 GB, and 128 times the state.
+  t = await read('State size against KV cache size', '.gen-bars');
+  expect(t.includes('7.864 MB') && t.includes('1.007 GB'), `the calculator shows "${t}"`);
+  t = await read('State size against KV cache size', '.gen-read');
+  expect(t === 'Attention KV cache is 128 times Mamba state for these inputs.', `the calculator says "${t}"`);
+  await act('State size against KV cache size', 'input[type=range]', '2');
+  t = await read('State size against KV cache size', '.gen-bars');
+  expect(t.includes('16.11 GB'), `after a context change, the calculator shows "${t}"`);
+
+  // Steps: the Next button moves to step 2, and the share of the first step is shown.
+  await act('One step of the selective scan', '[data-move="1"]', 'click');
+  t = await read('One step of the selective scan', '.gen-count');
+  expect(t === 'Step 2 of 3', `the steps figure counts "${t}"`);
+  t = await read('One step of the selective scan', '.gen-step-detail');
+  expect(t.includes('which is 50% of the first step'), `the second step says "${t}"`);
+
+  // Timeline: the middle of the slider is in the decay phase.
+  t = await read('Learning rate schedule', '.gen-p');
+  expect(t === 'Warmup', `the timeline starts in "${t}"`);
+  await act('Learning rate schedule', 'input[type=range]', '100');
+  t = await read('Learning rate schedule', '.gen-p');
+  expect(t === 'Decay', `the middle of the timeline is in "${t}"`);
+
+  // Threshold: 3 of 4 examples are at least 256, and 1 of 4 is at least 4,096.
+  t = await read('Filter by sequence length', '.gen-k');
+  expect(t === '3 of 4', `the threshold keeps "${t}"`);
+  await act('Filter by sequence length', 'input[type=range]', '2');
+  t = await read('Filter by sequence length', '.gen-k');
+  expect(t === '1 of 4', `after a threshold change, the threshold keeps "${t}"`);
+}
+
 async function checkServerViews(page, v, label) {
   const expect = (ok, what) => { if (!ok) problems.push(`${label}: ${what}`); };
   const text = sel => page.evaluate(s => (document.querySelector(s) || {}).textContent || '', sel);
@@ -73,6 +126,8 @@ async function checkServerViews(page, v, label) {
   const h1 = await text('.doc[data-doc="p1"] h1');
   const injected = await page.evaluate(() => !!document.querySelector('.doc[data-doc="p1"] img') || !!window.__xss);
   expect(h1.includes('<img') && !injected, 'the stored dossier doesn\'t escape its title');
+
+  await checkFigures(page, v, label);
 
   // An idea links to the earlier dossier it came from, and the earlier
   // dossier lists the later papers that reuse its ideas.

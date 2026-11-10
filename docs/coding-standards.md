@@ -29,6 +29,8 @@ The text check in `src/server/unpackai_server/text_check.py` finds the problems 
 - Compute the output from the inputs, so the output stays correct when the reader moves a control.
 - Add a `<p class="notice"><b>What to notice:</b> ...</p>` note that says what to look for and how it relates to the paper's result.
 - Give each SVG and each group of buttons an `aria-label`, and give each slider a `<label>`.
+- A stored dossier draws its figures only from the templates in `GEN_FIG`, with data from `FIGURE_TEMPLATES` in `dossier_schema.py`. Don't add a way for the server, Claude, or an export file to send HTML or a script for a figure.
+- A new figure template needs its schema in `FIGURE_TEMPLATES`, its checks in `figure_data_problem()`, its drawing function in `GEN_FIG`, a rule in the extract prompt, a figure in `tests/web/fake_server.js`, and a check of its controls in `tests/web/check_dossiers.js`.
 
 ## Server
 

@@ -70,7 +70,9 @@ The page builds a stored dossier from the JSON that the server returns, when you
 - The first tab has the table of new ideas. When an idea links to an earlier dossier, the table says whether the idea is the same idea or builds on it, with a link to the earlier dossier.
 - The first tab also lists the later papers in the library whose ideas reuse or extend the paper's ideas.
 - The last tab has the claims, the numbers with their sources, and the information that the paper doesn't give.
-- Each tab in between has its introduction, the new ideas that the tab explains, and the figures that the extract call suggests. The page doesn't build interactive figures for stored dossiers yet, so each suggested figure shows its title and its "What to notice" note.
+- Each tab in between has its introduction, the new ideas that the tab explains, and the figures that the extract call suggests.
+
+The page draws each figure of a stored dossier from one of five templates, which are a comparison of methods, a calculator, a timeline, a sequence of steps, and a threshold that keeps or drops example items. ADR 014 records the choice. The extract call fills the template with numbers and labels from the paper, and the page computes each output from the inputs, so the reader can move a control and see the effect. A figure that no template fits shows its title and its "What to notice" note.
 
 The page escapes every value from the server before it adds the value to the page, because the text comes from a paper, a web page, or an export file from another person.
 
@@ -78,17 +80,17 @@ The page escapes every value from the server before it adds the value to the pag
 
 You can share stored dossiers with other people through export files, and ADR 013 records the choice. Each stored dossier has an Export the dossier button, and the library has an Export the library button and an Import a file button. The buttons show only when the page can reach the server.
 
-An export file is JSON with the latest dossier of each finished paper. It names each paper by its source key, e.g., `arxiv:2312.00752`, because the paper ids differ between libraries. When you import the file, the server sets each link between dossiers to the id of the paper with that source in your library. A link to a paper that isn't in your library shows the earlier paper's title without a link. The server skips a paper that is already in your library, and the page says how many papers it imported and how many it skipped. A dossier from an export file says in its header that it came from an export file.
+An export file is JSON with the latest dossier of each finished paper. The file is in version 2, which added the figure data, and the server also reads version 1 files. It names each paper by its source key, e.g., `arxiv:2312.00752`, because the paper ids differ between libraries. When you import the file, the server sets each link between dossiers to the id of the paper with that source in your library. A link to a paper that isn't in your library shows the earlier paper's title without a link. The server skips a paper that is already in your library, and the page says how many papers it imported and how many it skipped. A dossier from an export file says in its header that it came from an export file.
 
 ## Server
 
 The server in `src/server/unpackai_server/` takes a source, e.g., an arXiv link, a PDF URL, a blog URL, or pasted text, and it unpacks the source in the background. It makes two or three calls to Claude for each source, and it stores every call in the database.
 
-1. The extract call reads the source and fills in the dossier fields. The system prompt includes the unpack skill from `.claude/skills/unpack/SKILL.md`, so the server follows the same rules as Claude Code. An arXiv paper or PDF goes to Claude as a document URL, and a blog post is read with the web fetch tool.
+1. The extract call reads the source and fills in the dossier fields, including the numbers for each figure template. The system prompt includes the unpack skill from `.claude/skills/unpack/SKILL.md`, so the server follows the same rules as Claude Code. An arXiv paper or PDF goes to Claude as a document URL, and a blog post is read with the web fetch tool.
 2. The compare call links the new ideas to the ideas in earlier dossiers. The server skips the call when the library has no other finished dossier. ADR 012 records the choice.
 3. The plain-writing call rewrites every prose field, with the plain-writing skill from `.claude/skills/plain-writing/SKILL.md` as the system prompt. The server keeps only the rewritten prose. Statuses, evidence labels, and numbers come from the earlier calls, so the rewrite can't change them.
 
-The server stores a dossier that it unpacked only after the plain-writing call succeeds, so every dossier that the server unpacks has gone through the skill. After the plain-writing call, the server runs the text check from `text_check.py` on every prose field, and it stores the problems it finds with the dossier for review in the API. If either skill file is missing, the unpack stops with an error.
+After the extract call, the server sets the data of each figure that the page couldn't draw to null, e.g., a comparison where a method has the wrong number of values. The server stores a dossier that it unpacked only after the plain-writing call succeeds, so every dossier that the server unpacks has gone through the skill. After the plain-writing call, the server runs the text check from `text_check.py` on every prose field, and it stores the problems it finds with the dossier for review in the API. If either skill file is missing, the unpack stops with an error.
 
 Every call uses `claude-opus-5-5` with adaptive thinking and streaming. They also use the `fallbacks: "default"` setting, so if Claude declines a request, the API tries Anthropic's recommended fallback model. The `generations` table records which model answered. You can set a different model with the `UNPACKAI_MODEL` variable when you run `scripts/compose-up.sh`.
 
@@ -161,9 +163,9 @@ The root filesystem of the `app` container isn't read-only, because Compose copi
 The `checks` container first runs the text check on the page and on the Markdown documentation, except the copied plain-writing skill, whose examples break the rules on purpose. It then runs `tests/web/check_dossiers.js`, which opens every tab of every dossier in Chromium, at desktop width and at phone width.
 
 1. First, the browser check opens the page as a file.
-2. Second, it opens the page from the fake server in `tests/web/fake_server.js`. The fake server answers the API requests with a stored dossier, an imported dossier, a running unpack, and a failed unpack, so the check needs no network and no key.
+2. Second, it opens the page from the fake server in `tests/web/fake_server.js`. The fake server answers the API requests with a stored dossier with one figure for each template, an imported dossier, a running unpack, and a failed unpack, so the check needs no network and no key.
 
-The browser check reports script errors, tabs that show the wrong panel, and pages that scroll sideways on a phone. With the fake server, it also checks the library, the progress in the command bar, the Try again button, the export and import buttons, and the escaping of HTML from the server. It saves a screenshot of every tab when the repository root has a `shots` folder that anyone can write to, e.g., after `mkdir -p shots && chmod 777 shots`.
+The browser check reports script errors, tabs that show the wrong panel, and pages that scroll sideways on a phone. With the fake server, it also checks the library, the progress in the command bar, the Try again button, the export and import buttons, the controls of each figure template, and the escaping of HTML from the server. It saves a screenshot of every tab when the repository root has a `shots` folder that anyone can write to, e.g., after `mkdir -p shots && chmod 777 shots`.
 
 On Windows, run the scripts in WSL or Git Bash. When neither `security` nor `secret-tool` is installed, the scripts use the Python `keyring` package on the host.
 
@@ -181,4 +183,4 @@ The full app would process each new paper in a fixed order, and the server alrea
 | Compare the paper with earlier dossiers, so reused ideas are marked as inherited | Built. The compare call links each new idea to the same idea or the idea it builds on in an earlier dossier (ADR 012). It doesn't see the sample dossiers, and a large library will need a search step that picks the closest dossiers first. |
 | Rewrite every paragraph with the plain-writing skill | Built. The second call rewrites the prose, and the server stores a dossier only after the rewrite succeeds. |
 | Share dossiers with other people | Built. You export dossiers to a file, and another person imports the file into their library (ADR 013). |
-| Show the dossier in the page, with interactive figures filled in from the paper's numbers | Built in part. The page shows each stored dossier, and it lists the suggested figures without building them. |
+| Show the dossier in the page, with interactive figures filled in from the paper's numbers | Built. The page draws each figure from one of five templates that the extract call fills with the paper's numbers (ADR 014). A figure that no template fits shows only its title and its note. |

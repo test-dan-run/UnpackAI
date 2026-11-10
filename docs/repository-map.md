@@ -63,7 +63,7 @@ UnpackAI/
 | `__main__.py` | Starts uvicorn with the safe log setup |
 | `app.py` | Defines the HTTP endpoints, serves the page, and writes the request log |
 | `unpack.py` | Parses sources and makes every call to Claude, with the extract, compare, and plain-writing prompts |
-| `dossier_schema.py` | Defines the JSON schemas of a dossier and of the compare links, adds the links to a draft, merges the rewritten prose into the draft, and checks that a dossier matches the schema |
+| `dossier_schema.py` | Defines the JSON schemas of a dossier, its figure templates, and the compare links, adds the links to a draft, merges the rewritten prose into the draft, and checks dossiers and figure data |
 | `db.py` | Creates the SQLite tables, reads and writes papers, generations, and dossiers, and finds the links between dossiers |
 | `share.py` | Builds export files, and checks and imports export files from other libraries |
 | `secret_store.py` | Reads the API key from the Docker secret |
@@ -77,6 +77,7 @@ UnpackAI/
 | `tests/server/conftest.py` | The fake Claude API, the temporary Docker secret file, and the example dossier drafts |
 | `tests/server/test_server.py` | The tests for the endpoints, the unpack steps, the secret, and the logs |
 | `tests/server/test_share.py` | The tests for export files, imports, and bad files |
+| `tests/server/test_figures.py` | The tests for the figure templates and the checks of figure data |
 | `tests/server/requirements.txt` | The server packages plus pytest |
 | `tests/web/check_dossiers.js` | Opens every tab of every dossier, with the page open as a file and from the fake server, and reports problems |
 | `tests/web/fake_server.js` | Answers the page's API requests with a stored dossier, an imported dossier, a running unpack, and a failed unpack |
@@ -98,6 +99,7 @@ UnpackAI/
 | [011](adr/011-page-builds-stored-dossiers-from-json.md) | The page builds each stored dossier from the JSON with one template |
 | [012](adr/012-compare-with-earlier-dossiers-in-a-separate-call.md) | A separate call links the new ideas to the ideas in earlier dossiers, and it returns no prose |
 | [013](adr/013-share-dossiers-with-export-files.md) | People share dossiers with export files, which the server checks before it imports them |
+| [014](adr/014-stored-dossiers-draw-figures-from-templates.md) | Stored dossiers draw their figures from five templates that the extract call fills with numbers |
 
 ## Where new work goes
 
@@ -105,7 +107,8 @@ UnpackAI/
 | --- | --- |
 | A dossier for a new paper | `src/web/index.html`, by following `.claude/skills/unpack/SKILL.md` |
 | A new paper type | The paper type tables in `.claude/skills/unpack/SKILL.md` and `docs/architecture.md` |
-| A new kind of interactive figure | `src/web/index.html`, and a row in the figure table of the unpack skill |
+| A new kind of interactive figure for a sample dossier | `src/web/index.html`, and a row in the figure table of the unpack skill |
+| A new figure template for stored dossiers | `FIGURE_TEMPLATES` and `figure_data_problem()` in `dossier_schema.py`, `GEN_FIG` in `src/web/index.html`, the extract prompt in `unpack.py`, and the fake server and the browser check (ADR 014) |
 | A new endpoint | `src/server/unpackai_server/app.py`, with a test in `tests/server/test_server.py`. If the page calls it, add it to `tests/web/fake_server.js` too. |
 | A change to how the page shows stored dossiers | `genBuild()` in `src/web/index.html`, and the fake dossier in `tests/web/fake_server.js` |
 | A change to how the server calls Claude | `src/server/unpackai_server/unpack.py` |

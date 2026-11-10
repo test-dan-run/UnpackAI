@@ -72,6 +72,7 @@ p{margin:0}
 .btn.primary{background:var(--blue);border-color:var(--blue);color:var(--panel)}
 .btn.small{padding:5px 10px;font-size:13px}
 a.btn{text-decoration:none;color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:default}
 .btn[aria-pressed="true"]{background:var(--blue-soft);border-color:var(--blue);color:var(--ink)}
 .proto-note{font-size:12.5px;color:var(--muted)}
 
@@ -318,6 +319,26 @@ table.small td,table.small th{padding:8px 12px}
 .share-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
 .gen-share{margin-top:12px}
 .gen-figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.gen-figs .viz.wide{grid-column:1 / -1}
+.gen-fig-body{display:grid;gap:14px;min-width:0}
+.gen-bars{display:grid;gap:10px}
+.gen-bar-label{display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap}
+.gen-bar .bar-track>div.novel{background:var(--hl)}
+.gen-bar .bar-track>div.std,.gen-step-list .bar-track>div{background:var(--std-ink)}
+.gen-read,.gen-src{font-size:13.5px;color:var(--muted);max-width:80ch}
+.gen-line{width:100%;min-width:300px;height:auto;display:block}
+.gen-line text{font-size:13px}
+.gen-bar .bar-track>div.calc{background:var(--blue)}
+.gen-line .band{fill:var(--paper)}
+.gen-line .band2{fill:var(--std)}
+.gen-line .line{fill:none;stroke:var(--blue);stroke-width:2}
+.gen-line .cursor{stroke:var(--ink);stroke-width:1;stroke-dasharray:3 3}
+.gen-line .dot{fill:var(--blue);stroke:var(--panel);stroke-width:2}
+.gen-steps{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:18px;align-items:start}
+.gen-step-list{display:grid;gap:6px}
+.gen-step-list .phase{width:100%}
+.gen-step-list .bar-track{height:6px}
+@media (max-width:620px){.gen-steps{grid-template-columns:minmax(0,1fr)}.gen-steps .detail{border-left:0;padding-left:0}}
 
 @media (max-width:1100px){
   .specs{grid-template-columns:repeat(3,minmax(0,1fr));width:100%}
@@ -1287,10 +1308,164 @@ function genLink(p,d){
   if(p.source_kind==="arxiv") return "https://arxiv.org/abs/"+p.source.slice(6);
   return /^https?:\/\//i.test(p.source)?p.source:null;
 }
+// A stored figure has data for one of the figure templates in
+// dossier_schema.py, and the page draws it with one function per template.
+// The data holds only numbers and short labels, and every label goes
+// through esc(). A figure without data shows its title and its note.
+const genNum = v => {
+  if(typeof v!=="number"||!isFinite(v)) return "not available";
+  const a=Math.abs(v), s=x=>x.toLocaleString("en-US",{maximumSignificantDigits:4});
+  if(a>=1e12) return s(v/1e12)+" trillion";
+  if(a>=1e9) return s(v/1e9)+" billion";
+  if(a>=1e6) return s(v/1e6)+" million";
+  if(a>0&&a<0.01) return v.toExponential(2).replace(/\.?0+e/,"e");
+  return s(v);
+};
+// Byte counts get a larger unit, e.g., 140 GB instead of 140 billion bytes.
+function genVal(v,unit){
+  const u=String(unit||"").trim();
+  if(/^bytes?$/i.test(u)&&typeof v==="number"&&isFinite(v)){
+    const units=["bytes","kB","MB","GB","TB","PB"]; let i=0, x=v;
+    while(Math.abs(x)>=1000&&i<units.length-1){x/=1000;i++;}
+    return esc(x.toLocaleString("en-US",{maximumSignificantDigits:4})+" "+units[i]);
+  }
+  return esc(genNum(v)+(u?" "+u:""));
+}
+const genPct = x => Math.abs(x).toLocaleString("en-US",{maximumSignificantDigits:3})+"%";
+let genFigN=0;
+function genBar(name,value,width,cls){
+  return `<div class="gen-bar"><div class="gen-bar-label"><span>${name}</span><b>${value}</b></div><div class="bar-track"><div class="${cls}" style="width:${Math.max(0,Math.min(100,width)).toFixed(1)}%"></div></div></div>`;
+}
+function genSlider(label,n,cur){
+  const id="genIn"+(++genFigN);
+  return `<label for="${id}">${label}</label><input class="range" type="range" id="${id}" min="0" max="${n-1}" step="1" value="${cur}">`;
+}
+
+const GEN_FIG = {
+  comparison(root,d){
+    let m=0;
+    root.innerHTML=(d.metrics.length>1?`<div class="controls"><div class="seg" role="group" aria-label="Metric">${d.metrics.map((x,i)=>`<button type="button" data-i="${i}" aria-pressed="${i===0}">${esc(x.name)}</button>`).join("")}</div></div>`:"")
+      +`<div class="gen-bars"></div><p class="gen-read"></p>`;
+    const draw=()=>{
+      const met=d.metrics[m], vals=d.methods.map(x=>x.values[m]), nums=vals.filter(v=>typeof v==="number");
+      const lo=Math.min(0,...nums), span=(Math.max(0,...nums)-lo)||1;
+      $(".gen-bars",root).innerHTML=d.methods.map((x,i)=>genBar(esc(x.name)+(x.is_new?` <span class="pill novel">New</span>`:""),
+        vals[i]==null?"Not reported":genVal(vals[i],met.unit),vals[i]==null?0:(vals[i]-lo)/span*100,x.is_new?"novel":"std")).join("");
+      const ni=d.methods.findIndex(x=>x.is_new), nv=ni<0?null:vals[ni];
+      const others=d.methods.map((x,i)=>({x,v:vals[i]})).filter((o,i)=>i!==ni&&typeof o.v==="number");
+      const best=others.length?others.reduce((a,b)=>(met.higher_is_better?b.v>a.v:b.v<a.v)?b:a):null;
+      let text=met.higher_is_better?`Higher values are better for ${esc(met.name)}.`:`Lower values are better for ${esc(met.name)}.`;
+      if(typeof nv==="number"&&best&&best.v!==0){
+        const diff=(nv-best.v)/Math.abs(best.v)*100, better=met.higher_is_better?diff>0:diff<0;
+        text+=` ${esc(d.methods[ni].name)} is ${genPct(diff)} ${diff>=0?"higher":"lower"} than ${esc(best.x.name)}, the best of the other methods, so it is ${better?"better":"worse"} on the metric.`;
+      }
+      $(".gen-read",root).innerHTML=text;
+    };
+    $$(".seg button",root).forEach(b=>b.onclick=()=>{m=+b.dataset.i;$$(".seg button",root).forEach(x=>x.setAttribute("aria-pressed",x===b));draw();});
+    draw();
+  },
+  calculator(root,d){
+    const sel=d.inputs.map(x=>x.default_index);
+    const label=(x,i)=>`${esc(x.name)}: <b class="mono">${genVal(x.choices[sel[i]],x.unit)}</b>${x.from_paper?"":` <span class="proto-note">example value</span>`}`;
+    root.innerHTML=`<div class="sliders">${d.inputs.map((x,i)=>x.choices.length>1
+      ?`<div class="gen-in" data-i="${i}">${genSlider(label(x,i),x.choices.length,sel[i])}</div>`
+      :`<div class="gen-in" data-i="${i}"><label>${label(x,i)}</label></div>`).join("")}</div><div class="gen-bars"></div><p class="gen-read"></p>`;
+    const sameUnit=d.outputs.every(o=>o.unit===d.outputs[0].unit);
+    const draw=()=>{
+      d.inputs.forEach((x,i)=>{ $(`.gen-in[data-i="${i}"] label`,root).innerHTML=label(x,i); });
+      const out=d.outputs.map(o=>o.constant*d.inputs.reduce((p,x,i)=>p*Math.pow(x.choices[sel[i]],o.powers[i]),1));
+      const hi=Math.max(...out.filter(isFinite).map(Math.abs))||1;
+      $(".gen-bars",root).innerHTML=d.outputs.map((o,i)=>genBar(esc(o.name),genVal(out[i],o.unit),sameUnit?Math.abs(out[i])/hi*100:100,"calc")).join("");
+      let text="";
+      if(sameUnit&&out.length>1&&out.every(v=>isFinite(v)&&v>0)){
+        const big=out.indexOf(Math.max(...out)), small=out.indexOf(Math.min(...out));
+        if(big!==small) text=`${esc(d.outputs[big].name)} is ${genNum(out[big]/out[small])} times ${esc(d.outputs[small].name)} for these inputs.`;
+      }
+      $(".gen-read",root).innerHTML=text; $(".gen-read",root).hidden=!text;
+    };
+    $$(".gen-in input",root).forEach(r=>r.oninput=()=>{sel[+r.closest(".gen-in").dataset.i]=+r.value;draw();});
+    draw();
+  },
+  timeline(root,d){
+    const ph=d.phases, x0=Math.min(...ph.map(p=>p.start)), x1=Math.max(...ph.map(p=>p.end));
+    const val=x=>{const p=ph.find(p=>x>=p.start&&x<=p.end)||ph[ph.length-1], t=(x-p.start)/(p.end-p.start);
+      return {p, y:p.shape==="constant"?p.start_value:p.shape==="linear"?p.start_value+(p.end_value-p.start_value)*t:p.end_value+(p.start_value-p.end_value)*(1+Math.cos(Math.PI*t))/2};};
+    const ys=ph.flatMap(p=>[p.start_value,p.end_value]), y1=Math.max(0,...ys), y0=Math.min(0,...ys);
+    const W=480,H=200,L=6,R=6,T=26,B=28, sx=x=>L+(x-x0)/(x1-x0)*(W-L-R), sy=y=>T+(1-(y-y0)/((y1-y0)||1))*(H-T-B);
+    const pts=ph.flatMap(p=>Array.from({length:25},(_,k)=>{const x=p.start+(p.end-p.start)*k/24;return `${sx(x).toFixed(1)},${sy(val(x).y).toFixed(1)}`}));
+    const xu=d.x_unit?" "+d.x_unit:"";
+    root.innerHTML=`<div class="svg-wrap"><svg class="gen-line" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(d.y_name)} over ${esc(d.x_name)}">
+      ${ph.map((p,i)=>{const w=Math.max(0,sx(p.end)-sx(p.start));
+        // A phase label shows only when it fits in its band. The readout below names the phase too.
+        return `<rect x="${sx(p.start)}" y="${T}" width="${w}" height="${H-T-B}" class="${i%2?"band2":"band"}"></rect>${w>=p.label.length*8+8?`<text x="${sx(p.start)+4}" y="${T-8}">${esc(p.label)}</text>`:""}`;}).join("")}
+      <polyline points="${pts.join(" ")}" class="line"></polyline>
+      <text x="${L}" y="${H-8}">${esc(genNum(x0)+xu)}</text><text x="${W-R}" y="${H-8}" text-anchor="end">${esc(genNum(x1)+xu)}</text>
+      <line class="cursor" y1="${T}" y2="${H-B}"></line><circle class="dot" r="5"></circle></svg></div>
+      <div>${genSlider(`${esc(d.x_name)}: <b class="mono gen-x"></b>`,201,0)}</div>
+      <div class="readout"><div><b class="gen-y"></b><span>${esc(d.y_name)}</span></div><div><b class="gen-p"></b><span>Phase</span></div></div>`;
+    const draw=k=>{
+      const x=x0+(x1-x0)*k/200, {p,y}=val(x);
+      $(".gen-x",root).textContent=genNum(x)+xu; $(".gen-y",root).innerHTML=genVal(y,d.y_unit); $(".gen-p",root).textContent=p.label;
+      const c=$(".cursor",root); c.setAttribute("x1",sx(x)); c.setAttribute("x2",sx(x));
+      const dot=$(".dot",root); dot.setAttribute("cx",sx(x)); dot.setAttribute("cy",sy(y));
+    };
+    $("input",root).oninput=e=>draw(+e.target.value);
+    draw(0);
+  },
+  steps(root,d){
+    let cur=0;
+    const vals=d.steps.map(s=>s.value), nums=vals.filter(v=>typeof v==="number"), hi=Math.max(0,...nums.map(Math.abs))||1;
+    root.innerHTML=`<div class="gen-steps"><div class="gen-step-list" role="group" aria-label="Steps">${d.steps.map((s,i)=>`<button type="button" class="phase" data-i="${i}" aria-pressed="${i===0}"><b>${i+1}. ${esc(s.label)}</b>${typeof s.value==="number"?`<span>${genVal(s.value,d.value_unit)}</span><div class="bar-track"><div class="std" style="width:${(Math.abs(s.value)/hi*100).toFixed(1)}%"></div></div>`:""}</button>`).join("")}</div>
+      <div class="detail gen-step-detail"></div></div>
+      <div class="controls"><button type="button" class="btn small" data-move="-1">Previous step</button><button type="button" class="btn small" data-move="1">Next step</button><span class="eyebrow gen-count"></span></div>`;
+    const draw=()=>{
+      const s=d.steps[cur], first=vals[0];
+      let value="";
+      if(typeof s.value==="number"){
+        value=`<p class="kv">${esc(d.value_name)}: ${genVal(s.value,d.value_unit)}`+(cur>0&&typeof first==="number"&&first!==0?`, which is ${genPct(s.value/first*100)} of the first step`:"")+`</p>`;
+      }
+      $(".gen-step-detail",root).innerHTML=`<h4>${esc(s.label)}</h4><p>${esc(s.text)}</p>${value}${s.details.length?`<p class="kv">${s.details.map(x=>`${esc(x.label)}: ${esc(x.value)}`).join("<br>")}</p>`:""}`;
+      $$(".gen-step-list button",root).forEach((b,i)=>b.setAttribute("aria-pressed",i===cur));
+      $(".gen-count",root).textContent=`Step ${cur+1} of ${d.steps.length}`;
+      $('[data-move="-1"]',root).disabled=cur===0; $('[data-move="1"]',root).disabled=cur===d.steps.length-1;
+    };
+    $$(".gen-step-list button",root).forEach(b=>b.onclick=()=>{cur=+b.dataset.i;draw();});
+    $$("[data-move]",root).forEach(b=>b.onclick=()=>{cur=Math.max(0,Math.min(d.steps.length-1,cur+(+b.dataset.move)));draw();});
+    draw();
+  },
+  threshold(root,d){
+    let t=d.default_index;
+    const keep=s=>d.keep_when==="at_least"?s>=d.thresholds[t]:s<=d.thresholds[t];
+    root.innerHTML=`<div>${genSlider(`${esc(d.score_name)}: <b class="mono gen-t"></b>`,d.thresholds.length,t)}</div>
+      <div class="readout"><div><b class="gen-k"></b><span>Items kept</span></div><div><b class="gen-s"></b><span>Share of items kept</span></div></div>
+      <div class="edu-list gen-items"></div>`;
+    const draw=()=>{
+      const kept=d.items.filter(i=>keep(i.score)).length;
+      $(".gen-t",root).textContent=(d.keep_when==="at_least"?"keep at least ":"keep at most ")+genNum(d.thresholds[t]);
+      $(".gen-k",root).textContent=`${kept} of ${d.items.length}`;
+      $(".gen-s",root).textContent=genPct(kept/d.items.length*100);
+      $(".gen-items",root).innerHTML=d.items.map(i=>`<div class="edu-row${keep(i.score)?"":" removed"}"><span>${esc(i.label)}</span><span class="mono">${esc(genNum(i.score))}</span><span class="pill ${keep(i.score)?"ok":"warn"}">${keep(i.score)?"Kept":"Removed"}</span></div>`).join("");
+    };
+    $("input",root).oninput=e=>{t=+e.target.value;draw();};
+    draw();
+  },
+};
 function genFigures(figs){
   if(!figs.length) return "";
-  return `<div class="gen-figs">${figs.map(f=>`<div class="viz"><div class="viz-head"><div><div class="eyebrow">Suggested figure, not built yet</div><h3>${esc(f.title)}</h3></div></div>
-    <div class="viz-body"><p class="notice"><b>What to notice:</b> ${esc(f.what_to_notice)}</p>${f.uses_made_up_values?`<p class="proto-note">The figure needs example values that the paper doesn't give.</p>`:""}</div></div>`).join("")}</div>`;
+  return `<div class="gen-figs">${figs.map(({f,i})=>{
+    const live=f.data&&GEN_FIG[f.data.template];
+    return `<div class="viz${live?" wide":""}" data-gen-fig="${i}"><div class="viz-head"><div><div class="eyebrow">${live?"Interactive figure":"Suggested figure, not built yet"}</div><h3>${esc(f.title)}</h3></div></div>
+    <div class="viz-body">${live?`<div class="gen-fig-body"></div>`:""}<p class="notice"><b>What to notice:</b> ${esc(f.what_to_notice)}</p>${live&&f.data.source?`<p class="gen-src">The numbers come from ${esc(f.data.source)} of the paper.</p>`:""}${f.uses_made_up_values?`<p class="proto-note">The figure uses example values that the paper doesn't give.</p>`:""}</div></div>`;
+  }).join("")}</div>`;
+}
+// Draw each figure that has data, after the dossier is in a doc element.
+function genDrawFigures(el,figures){
+  $$("[data-gen-fig]",el).forEach(n=>{
+    const f=figures[+n.dataset.genFig], body=$(".gen-fig-body",n);
+    if(!body) return;
+    try{ GEN_FIG[f.data.template](body,f.data); }
+    catch(e){ body.innerHTML=`<p class="proto-note">The page couldn't draw the figure from its data.</p>`; }
+  });
 }
 function genBuild(p){
   const d=p.dossier.content, docId="p"+p.id;
@@ -1306,7 +1481,7 @@ function genBuild(p){
   const novRows=rows=>rows.map(n=>{const st=GEN_STATUS.includes(n.status)?n.status:"std";return `<tr><td class="what">${esc(n.what)}${genEarlier(n.earlier)}</td><td><span class="pill ${st}">${label[st]}</span></td><td>${esc(n.replaces)}</td><td>${esc(n.why)}</td><td class="sec">${where(n.where)}</td></tr>`}).join("");
   const novTable=rows=>rows.length?`<div class="table-wrap"><table><thead><tr><th>Idea</th><th>Status</th><th>What it replaces</th><th>Why it works</th><th>Explained in</th></tr></thead><tbody>${novRows(rows)}</tbody></table></div>`:"";
   const claims=rows=>claimsHTML(rows.map(c=>({h:esc(c.heading),p:esc(c.text),c:GEN_EVIDENCE_CLASS.includes(c.evidence_class)?c.evidence_class:"std",ev:esc(c.evidence),w:keyOf[c.where]?esc(titleOf(keyOf[c.where])):esc(c.where)})));
-  const figsFor=t=>(d.figures||[]).filter(f=>keyOf[f.tab]===t.key);
+  const figsFor=t=>(d.figures||[]).map((f,i)=>({f,i})).filter(x=>keyOf[x.f.tab]===t.key);
   const head=(t,h2)=>`<div><div class="section-title"><h2>${h2||esc(t.title)}</h2></div>${t.lede?`<p class="lede" style="margin-top:8px">${esc(t.lede)}</p>`:""}</div>`;
 
   let thesis=esc(d.thesis);
@@ -1342,6 +1517,7 @@ function genBuild(p){
     <nav class="tabs" role="tablist" aria-label="Dossier sections">
       ${tabs.map((t,i)=>`<a class="tab" role="tab" href="#${docId}-${t.key}" data-tab="${t.key}">${esc(t.title)}${i===0&&nNovel?` <span class="count">${nNovel}</span>`:""}</a>`).join("")}
     </nav>${panels}`;
+  genDrawFigures(el,d.figures||[]);
   return {el, tabs:tabs.map(t=>t.key)};
 }
 async function genLoad(docId){

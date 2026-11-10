@@ -13,6 +13,10 @@ file, it sets each link to the id of the paper with that source. A link to a
 paper that isn't in the library keeps the title and the idea text, and its
 paper id is null, so the page shows the title without a link.
 
+Version 2 added the "data" field to each figure. The server still reads
+version 1 files, and it gives their figures no data. On import and export,
+clean_figures() sets figure data that the page couldn't draw to null.
+
 An export file comes from another person, so the server treats it like text
 from a paper. It checks the shape of every dossier against DOSSIER_SCHEMA,
 it accepts only http and https URLs, and it runs the text check again. If any
@@ -25,11 +29,12 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .db import Database
-from .dossier_schema import DOSSIER_SCHEMA, RELATIONS, shape_problem, without_links
+from .dossier_schema import DOSSIER_SCHEMA, RELATIONS, clean_figures, shape_problem, without_links
 from .unpack import text_problems
 
 FORMAT = "unpackai-export"
-VERSION = 1
+VERSION = 2
+READS_VERSIONS = (1, 2)
 MAX_PAPERS = 1000
 MAX_BYTES = 20 * 1024 * 1024
 
@@ -51,7 +56,8 @@ def build_export(db: Database, paper_ids: list[int] | None = None) -> dict[str, 
     sources = db.source_keys()
     papers = []
     for row in db.finished_dossiers(paper_ids):
-        dossier = without_links(row["content"])
+        # A dossier stored before version 2 has figures without data.
+        dossier = clean_figures(without_links(row["content"]))
         for n, stored in zip(dossier["novelties"], row["content"]["novelties"]):
             e = stored.get("earlier")
             n["earlier"] = e and {
@@ -112,11 +118,17 @@ def check_export(data: Any) -> list[dict[str, Any]]:
     """Return the papers in an export file, or raise ImportProblem with the first problem."""
     if not isinstance(data, dict) or data.get("format") != FORMAT:
         raise ImportProblem("The file isn't an UnpackAI export file.")
-    if data.get("version") != VERSION:
-        raise ImportProblem(f"The file has export version {data.get('version')!r}, and the server reads only version {VERSION}.")
+    if data.get("version") not in READS_VERSIONS:
+        raise ImportProblem(f"The file has export version {data.get('version')!r}, and the server reads versions {READS_VERSIONS[0]} to {READS_VERSIONS[-1]}.")
     papers = data.get("papers")
     if not isinstance(papers, list):
         raise ImportProblem("The file has no list of papers.")
+    if data["version"] == 1:
+        for p in papers:
+            figures = p.get("dossier", {}).get("figures") if isinstance(p, dict) and isinstance(p.get("dossier"), dict) else None
+            for f in figures if isinstance(figures, list) else []:
+                if isinstance(f, dict):
+                    f.setdefault("data", None)
     if len(papers) > MAX_PAPERS:
         raise ImportProblem(f"The file has {len(papers)} papers, and the server imports at most {MAX_PAPERS} at a time.")
     for i, p in enumerate(papers):
@@ -145,6 +157,9 @@ def _set_link_ids(dossier: dict, paper_id: int, ids: dict[str, int]) -> dict:
 def import_export(db: Database, data: Any) -> dict[str, list[dict[str, Any]]]:
     """Check an export file and store its papers. Return the added and the skipped papers."""
     papers = check_export(data)
-    items = [{**p, "text_problems": text_problems(without_links(p["dossier"]))} for p in papers]
+    items = []
+    for p in papers:
+        dossier = clean_figures(p["dossier"])
+        items.append({**p, "dossier": dossier, "text_problems": text_problems(without_links(dossier))})
     added, skipped = db.import_papers(items, _set_link_ids)
     return {"added": added, "skipped": skipped}

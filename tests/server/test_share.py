@@ -44,7 +44,7 @@ def test_export_and_import_move_dossiers_between_libraries(client, other, fake_a
     assert r.status_code == 200
     assert r.headers["content-disposition"] == 'attachment; filename="unpackai-library.json"'
     data = r.json()
-    assert data["format"] == "unpackai-export" and data["version"] == 1
+    assert data["format"] == "unpackai-export" and data["version"] == 2
     assert [p["source"] for p in data["papers"]] == ["arxiv:2111.00396", "arxiv:2312.00752"]
     # The file names the earlier paper by its source, because ids differ
     # between libraries, and it holds no calls, raw output, or text problems.
@@ -120,7 +120,9 @@ def bad(change):
 
 @pytest.mark.parametrize("make, problem", [
     (bad(lambda d: d.update(format="something-else")), "isn't an UnpackAI export file"),
-    (bad(lambda d: d.update(version=2)), "reads only version 1"),
+    (bad(lambda d: d.update(version=3)), "reads versions 1 to 2"),
+    (bad(lambda d: d["papers"][0]["dossier"]["figures"][0]["data"].update(template="pie")), "doesn't match any of the allowed shapes"),
+    (bad(lambda d: d["papers"][0]["dossier"]["figures"][0]["data"]["steps"][0].update(value="<b>")), "steps[0].value"),
     (bad(lambda d: d.pop("papers")), "no list of papers"),
     (bad(lambda d: d["papers"][1]["dossier"].pop("thesis")), "Paper 2 in the file has a problem"),
     (bad(lambda d: d["papers"][0]["dossier"].update(script="<script>")), "unknown field 'script'"),
