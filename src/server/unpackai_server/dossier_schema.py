@@ -21,9 +21,12 @@ shows only its title and its "What to notice" note.
 
 The API compiles each output schema into a grammar, and it rejects a grammar
 that is too large. DOSSIER_SCHEMA with the figure templates in it was too
-large, so DOSSIER_SCHEMA has no figure data. A separate figures call returns
-FIGURES_SCHEMA, which has one list for each template, and apply_figure_data()
-moves the data into the figures. The plain-writing call gets the text of the
+large, and so was one schema with all five templates, while each template on
+its own was accepted. So DOSSIER_SCHEMA has no figure data, and the server
+makes one figures call for each template that the dossier needs, with the
+schema in FIGURE_CALL_SCHEMAS. KIND_TEMPLATE picks the template from the
+figure kind that the extract call sets, and apply_figure_data() moves the
+data into the figures. The plain-writing call gets the text of the
 figure steps as a flat list, in PLAIN_SCHEMA. STORED_DOSSIER_SCHEMA is the
 shape of a stored dossier with its figure data, and the server uses it only
 to check export files.
@@ -118,10 +121,22 @@ FIGURE_TEMPLATES: dict[str, dict[str, Any]] = {
     name: _obj({"template": {"type": "string", "enum": [name]}, **fields, "source": S}) for name, fields in FIGURE_FIELDS.items()
 }
 
-# The output of the figures call. The API docs say that each union type,
+# The template for each figure kind from the extract call. A figure of a kind
+# that isn't here gets no data, so it shows its title and its note.
+KIND_TEMPLATE = {
+    "method_comparison_simulation": "comparison",
+    "memory_calculator": "calculator",
+    "roofline_estimate": "calculator",
+    "schedule_timeline": "timeline",
+    "pipeline_diagram": "steps",
+    "worked_example": "steps",
+    "block_loop_animation": "steps",
+    "threshold_tester": "threshold",
+}
+
+# The output of each figures call. The API docs say that each union type,
 # i.e., anyOf or a nullable field, makes the grammar grow fast, so the schema
-# has none. Each template has its own list instead of a choice between
-# templates, and a missing number is a flag instead of null:
+# has none, and a missing number is a flag instead of null:
 # - comparison: "not_reported" lists the metric indexes without a value
 # - steps: "has_value" is false when a step has no value
 # apply_figure_data() turns both into nulls in the stored data. "figure" is
@@ -137,10 +152,10 @@ _CALL_FIELDS = {
         "steps": _arr(_obj({"label": S, "text": S, "value": N, "has_value": {"type": "boolean"}, "details": _arr(_obj({"label": S, "value": S}))})),
     },
 }
-FIGURES_SCHEMA: dict[str, Any] = _obj({
-    name: _arr(_obj({"figure": {"type": "integer"}, "made_up_values": {"type": "boolean"}, **fields, "source": S}))
+FIGURE_CALL_SCHEMAS: dict[str, dict[str, Any]] = {
+    name: _obj({name: _arr(_obj({"figure": {"type": "integer"}, "made_up_values": {"type": "boolean"}, **fields, "source": S}))})
     for name, fields in _CALL_FIELDS.items()
-})
+}
 
 
 def _stored_data(name: str, item: dict) -> dict:

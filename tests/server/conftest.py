@@ -55,7 +55,8 @@ S4_DRAFT = {
 }
 
 
-# The answer of the figures call for DRAFT, in the shape of FIGURES_SCHEMA.
+# The answers of the figures calls for DRAFT. Each call has one template, and
+# the server reads only the list for that template.
 FIGURE_RESULT = {
     "steps": [{"figure": 0, "made_up_values": True, "source": "Section 3.3", "value_name": "Tokens read", "value_unit": "tokens", "steps": [
         {"label": "Load", "text": "This step leverages fast memory.", "value": 0, "has_value": False, "details": [{"label": "Memory", "value": "SRAM"}]},

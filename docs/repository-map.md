@@ -108,7 +108,7 @@ UnpackAI/
 | A dossier for a new paper | `src/web/index.html`, by following `.claude/skills/unpack/SKILL.md` |
 | A new paper type | The paper type tables in `.claude/skills/unpack/SKILL.md` and `docs/architecture.md` |
 | A new kind of interactive figure for a sample dossier | `src/web/index.html`, and a row in the figure table of the unpack skill |
-| A new figure template for stored dossiers | `FIGURE_FIELDS` and `figure_data_problem()` in `dossier_schema.py`, `GEN_FIG` in `src/web/index.html`, `FIGURES_SYSTEM` in `unpack.py`, and the fake server and the browser check (ADR 014) |
+| A new figure template for stored dossiers | `FIGURE_FIELDS`, `KIND_TEMPLATE`, and `figure_data_problem()` in `dossier_schema.py`, `GEN_FIG` in `src/web/index.html`, `FIGURES_SYSTEM` in `unpack.py`, and the fake server and the browser check (ADR 014) |
 | A new endpoint | `src/server/unpackai_server/app.py`, with a test in `tests/server/test_server.py`. If the page calls it, add it to `tests/web/fake_server.js` too. |
 | A change to how the page shows stored dossiers | `genBuild()` in `src/web/index.html`, and the fake dossier in `tests/web/fake_server.js` |
 | A change to how the server calls Claude | `src/server/unpackai_server/unpack.py` |

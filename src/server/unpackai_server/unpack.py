@@ -1,12 +1,13 @@
 """The unpack pipeline. Every call to Claude in the app goes through this module.
 
-An unpack makes three or four calls:
+An unpack makes these calls:
 
 1. The extract call reads the source and fills in the dossier fields.
-2. The figures call reads the source again and fills in the numbers for each
-   figure template. It has its own call because the figure templates made the
-   extract schema too large for the API. The server skips it when the dossier
-   has no figures.
+2. The figures calls read the source again and fill in the numbers for the
+   figures, with one call for each figure template that the dossier needs.
+   The templates have their own calls because the API rejected the grammar
+   of a schema with all of them. The server skips the calls when no figure
+   fits a template.
 3. The compare call links the new ideas to the ideas in earlier dossiers. The
    server skips it when the database has no other finished dossier.
 4. The plain-writing call rewrites every prose field with the plain-writing
@@ -32,7 +33,8 @@ from .db import Database
 from .dossier_schema import (
     COMPARE_SCHEMA,
     DOSSIER_SCHEMA,
-    FIGURES_SCHEMA,
+    FIGURE_CALL_SCHEMAS,
+    KIND_TEMPLATE,
     PLAIN_SCHEMA,
     ShapeMismatch,
     apply_figure_data,
@@ -125,17 +127,23 @@ EXTRACT_USER = "Unpack the source above into a dossier. The source location is: 
 
 FIGURES_SYSTEM = """You fill in the numbers for the interactive figures of an UnpackAI dossier. UnpackAI is a web app that explains new AI research papers and lab blog posts, and each dossier has figures that let the reader change an input and see the effect.
 
-You get the source and a JSON list of the figures that the dossier plans, with the index, title, and "What to notice" note of each figure. The page can't run code from you, so it draws each figure from a fixed template. Return the data for each figure in the list for its template, with the index of the figure in "figure".
+The page can't run code from you, so it draws each figure from one of these fixed templates:
+- "comparison" shows results of several methods on the same metrics.
+- "calculator" shows a size or a cost that you get by multiplying the inputs.
+- "timeline" shows a schedule over training steps or tokens.
+- "steps" shows a pipeline or a calculation done step by step.
+- "threshold" shows a score threshold that keeps or drops items.
+
+You get the source, the name of one template, and a JSON list of the figures that the dossier plans for that template, with the index, title, and "What to notice" note of each figure. Return the data for each figure in the list, with the index of the figure in "figure". Leave a figure out when the template doesn't fit it, or when the source doesn't give the numbers it needs.
 
 Rules for the figure data:
-- Use the template that fits the figure best. Use "comparison" for results of several methods on the same metrics, "calculator" for a size or a cost that you get by multiplying the inputs, "timeline" for a schedule over training steps or tokens, "steps" for a pipeline or a calculation done step by step, and "threshold" for a score threshold that keeps or drops items. Leave a figure out of every list when no template fits it.
 - Every number comes from the source, and "source" names the section, table, or figure. Don't guess a value that the source doesn't give. When a template needs example values that the source doesn't give, e.g., example items for a threshold, set made_up_values to true. For a calculator input that the source doesn't give, set from_paper to false.
 - A calculator output is the constant times each input raised to its power. For example, a cache size in bytes of layers times tokens times 2 bytes has a power of 1 for both inputs and a constant of 2. Use powers from -4 to 4, and give each input the values from the source as its choices.
 - In a comparison, give each method one value for each metric, in the order of the metrics. Mark the method that the source presents as new with is_new. When the source doesn't report a value, write 0 and add the index of the metric to not_reported.
 - In steps, set has_value to false and write 0 for a step that has no value.
 - Keep names and labels short, e.g., a method or a metric name. Write the explanation in the text of each step, in plain sentences."""
 
-FIGURES_USER = "Fill in the data for the figures below. The source location is: {location}\n\n{figures}"
+FIGURES_USER = "Fill in the \"{template}\" template for the figures below. The source location is: {location}\n\n{figures}"
 
 COMPARE_SYSTEM = """You compare the new ideas in a paper with the ideas in earlier UnpackAI dossiers. UnpackAI marks each idea in a paper as new, inherited from earlier work, or standard practice, and a link to an earlier dossier shows the reader where an idea came from.
 
@@ -242,11 +250,16 @@ class Unpacker:
             raise
 
     @staticmethod
-    def _source_content(source: Source, request: str) -> tuple[list, list]:
-        """Return the message content that gives Claude the source, and the tools it needs."""
+    def _source_content(source: Source, request: str, cache: bool = False) -> tuple[list, list]:
+        """Return the message content that gives Claude the source, and the tools it needs.
+
+        With cache, the document block gets a cache breakpoint, so the next
+        call with the same system prompt can read the source from the cache.
+        """
+        mark = {"cache_control": {"type": "ephemeral"}} if cache else {}
         if source.kind in ("arxiv", "pdf_url"):
             content = [
-                {"type": "document", "source": {"type": "url", "url": source.url}},
+                {"type": "document", "source": {"type": "url", "url": source.url}, **mark},
                 {"type": "text", "text": request.replace("{location}", source.url)},
             ]
             return content, []
@@ -254,7 +267,7 @@ class Unpacker:
             content = [{"type": "text", "text": f"Read the page at {source.url} with web fetch, and also read the paper or code it links to if it has one. " + request.replace("{location}", source.url)}]
             return content, [{"type": "web_fetch_20260209", "name": "web_fetch", "max_uses": 6}]
         content = [
-            {"type": "document", "source": {"type": "text", "media_type": "text/plain", "data": source.text}},
+            {"type": "document", "source": {"type": "text", "media_type": "text/plain", "data": source.text}, **mark},
             {"type": "text", "text": request.replace("{location}", "text pasted by the user")},
         ]
         return content, []
@@ -272,27 +285,45 @@ class Unpacker:
         return self._call(paper_id, "extract", **params)
 
     def figures(self, paper_id: int, source: Source, draft: dict) -> dict:
-        """Fill in the data of each figure with a separate call that reads the source again.
+        """Fill in the data of the figures with one call for each template that the dossier needs.
 
-        The figure templates make the schema too large for the extract call,
-        so the figures have their own call with FIGURES_SCHEMA.
+        The API rejected the grammar of one schema with all five templates,
+        so each call reads the source again with one template's schema. The
+        system prompt and the source come first in every call, with a cache
+        breakpoint, so the later calls can read them from the cache. A failed
+        call leaves its figures without data, and the unpack goes on, because
+        a figure without data still shows its title and its note.
         """
-        if not draft["figures"]:
-            return apply_figure_data(draft, {})
-        plan = [
-            {"figure": i, "kind": f["kind"], "title": f["title"], "what_to_notice": f["what_to_notice"]}
-            for i, f in enumerate(draft["figures"])
-        ]
-        request = FIGURES_USER.replace("{figures}", json.dumps(plan, ensure_ascii=False))
-        content, tools = self._source_content(source, request)
-        params: dict[str, Any] = {
-            "system": [{"type": "text", "text": FIGURES_SYSTEM}],
-            "output_config": {"effort": "high", "format": {"type": "json_schema", "schema": FIGURES_SCHEMA}},
-            "messages": [{"role": "user", "content": content}],
-        }
-        if tools:
-            params["tools"] = tools
-        return apply_figure_data(draft, self._call(paper_id, "figures", **params))
+        groups: dict[str, list[int]] = {}
+        for i, f in enumerate(draft["figures"]):
+            name = KIND_TEMPLATE.get(f["kind"])
+            if name:
+                groups.setdefault(name, []).append(i)
+        results: dict[str, list] = {}
+        for name in FIGURE_CALL_SCHEMAS:
+            if name not in groups:
+                continue
+            plan = [
+                {"figure": i, "title": draft["figures"][i]["title"], "what_to_notice": draft["figures"][i]["what_to_notice"]}
+                for i in groups[name]
+            ]
+            request = FIGURES_USER.replace("{template}", name).replace("{figures}", json.dumps(plan, ensure_ascii=False))
+            content, tools = self._source_content(source, request, cache=True)
+            params: dict[str, Any] = {
+                "system": [{"type": "text", "text": FIGURES_SYSTEM}],
+                "output_config": {"effort": "high", "format": {"type": "json_schema", "schema": FIGURE_CALL_SCHEMAS[name]}},
+                "messages": [{"role": "user", "content": content}],
+            }
+            if tools:
+                params["tools"] = tools
+            try:
+                result = self._call(paper_id, f"figures_{name}", **params)
+            except (UnpackError, anthropic.APIError) as exc:
+                log.warning("paper %s: the %s figures call failed, so its figures have no data: %s", paper_id, name, describe_error(exc))
+                continue
+            # A figure that belongs to another template is dropped.
+            results[name] = [item for item in result.get(name) or [] if item.get("figure") in groups[name]]
+        return apply_figure_data(draft, results)
 
     def compare(self, paper_id: int, draft: dict) -> dict:
         earlier = {d["paper_id"]: d for d in self.db.earlier_dossiers(exclude=paper_id)}
@@ -337,7 +368,12 @@ class Unpacker:
             raise UnpackError(f"The plain-writing pass changed the shape of the dossier ({exc}).") from None
 
     # The schemas that the calls send as output_config.format.
-    SCHEMAS = {"extract": DOSSIER_SCHEMA, "figures": FIGURES_SCHEMA, "compare": COMPARE_SCHEMA, "plain_writing": PLAIN_SCHEMA}
+    SCHEMAS = {
+        "extract": DOSSIER_SCHEMA,
+        **{f"figures_{name}": schema for name, schema in FIGURE_CALL_SCHEMAS.items()},
+        "compare": COMPARE_SCHEMA,
+        "plain_writing": PLAIN_SCHEMA,
+    }
 
     def _try_schema(self, schema: dict) -> str | None:
         """Send one schema with a tiny token limit. Return the API's error, or None if it accepts the schema."""
