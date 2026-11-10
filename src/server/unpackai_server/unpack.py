@@ -336,6 +336,44 @@ class Unpacker:
         except ShapeMismatch as exc:
             raise UnpackError(f"The plain-writing pass changed the shape of the dossier ({exc}).") from None
 
+    # The schemas that the calls send as output_config.format.
+    SCHEMAS = {"extract": DOSSIER_SCHEMA, "figures": FIGURES_SCHEMA, "compare": COMPARE_SCHEMA, "plain_writing": PLAIN_SCHEMA}
+
+    def _try_schema(self, schema: dict) -> str | None:
+        """Send one schema with a tiny token limit. Return the API's error, or None if it accepts the schema."""
+        try:
+            with self.client().beta.messages.stream(
+                model=self.model,
+                max_tokens=64,
+                thinking={"type": "adaptive"},
+                betas=[FALLBACK_BETA],
+                fallbacks="default",
+                output_config={"effort": "low", "format": {"type": "json_schema", "schema": schema}},
+                messages=[{"role": "user", "content": "Reply with any JSON that fits the schema."}],
+            ) as stream:
+                stream.get_final_message()
+        except anthropic.BadRequestError as exc:
+            return describe_error(exc)
+        return None
+
+    def check_schemas(self) -> list[tuple[str, str]]:
+        """Check that the API accepts the schema of each call, and return (name, result) pairs.
+
+        The API compiles each schema into a grammar and rejects a grammar that
+        is too large. When it rejects a schema, the check sends each top-level
+        field of the schema on its own, to show which part is too large. Each
+        request stops after 64 output tokens, so the check costs little.
+        """
+        results = []
+        for name, schema in self.SCHEMAS.items():
+            problem = self._try_schema(schema)
+            results.append((name, problem or "accepted"))
+            if problem:
+                for key, sub in schema["properties"].items():
+                    part = {"type": "object", "properties": {key: sub}, "required": [key], "additionalProperties": False}
+                    results.append((f"{name}.{key}", self._try_schema(part) or "accepted"))
+        return results
+
     def run(self, paper_id: int, source: Source) -> None:
         """Run the whole unpack for one paper. Errors are stored, not raised."""
         self.db.set_status(paper_id, "running")

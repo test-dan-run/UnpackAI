@@ -93,6 +93,8 @@ The server in `src/server/unpackai_server/` takes a source, e.g., an arXiv link,
 
 After the figures call, the server sets the data of each figure that the page couldn't draw to null, e.g., a comparison where a method has the wrong number of values. The server stores a dossier that it unpacked only after the plain-writing call succeeds, so every dossier that the server unpacks has gone through the skill. After the plain-writing call, the server runs the text check from `text_check.py` on every prose field, and it stores the problems it finds with the dossier for review in the API. If either skill file is missing, the unpack stops with an error.
 
+The API compiles the output schema of each call into a grammar, and it rejects a schema whose grammar is too large. To check the schemas against the API, run `docker exec unpackai-app-1 python -m unpackai_server --check-schemas`. The command sends each schema with a limit of 64 output tokens, and for a schema that the API rejects, it also sends each top-level field on its own to show which part is too large.
+
 Every call uses `claude-opus-5-5` with adaptive thinking and streaming. They also use the `fallbacks: "default"` setting, so if Claude declines a request, the API tries Anthropic's recommended fallback model. The `generations` table records which model answered. You can set a different model with the `UNPACKAI_MODEL` variable when you run `scripts/compose-up.sh`.
 
 ### API

@@ -104,10 +104,19 @@ class FakeAPI:
         self.draft = DRAFT
         self.links = []
         self.figure_result = FIGURE_RESULT
+        # A function of the output schema. When it returns True, the fake API
+        # rejects the schema the way the real API rejects a grammar that is too large.
+        self.reject_schema = lambda schema: False
 
     def handler(self, request: httpx2.Request) -> httpx2.Response:
         body = json.loads(request.content)
         self.requests.append({"headers": dict(request.headers), "body": body})
+        schema = body.get("output_config", {}).get("format", {}).get("schema")
+        if schema and self.reject_schema(schema):
+            error = {"type": "error", "error": {"type": "invalid_request_error", "message": "The compiled grammar is too large, which would cause performance issues."}}
+            return httpx2.Response(400, json=error)
+        if "system" not in body:
+            return httpx2.Response(200, headers={"content-type": "text/event-stream"}, text=sse("{}", "max_tokens"))
         system = body["system"][0]["text"]
         if "<plain_writing_skill>" in system:
             draft = json.loads(body["messages"][0]["content"])

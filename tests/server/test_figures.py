@@ -157,3 +157,13 @@ def test_dossiers_from_before_figure_data_still_export_and_import(client, fake_a
         assert r.status_code == 200, r.text
         stored = other.get(f"/api/papers/{r.json()['added'][0]['paper_id']}").json()["dossier"]["content"]
     assert [f["data"] for f in stored["figures"]] == [None, None]
+
+
+def test_schema_check_finds_the_part_the_api_rejects(unpacker, stored_key, fake_api):
+    fake_api.reject_schema = lambda schema: "figures" in schema["properties"]
+    results = dict(unpacker.check_schemas())
+    assert results["figures"] == results["compare"] == "accepted"
+    assert "grammar is too large" in results["extract"] and "grammar is too large" in results["plain_writing"]
+    assert "grammar is too large" in results["extract.figures"] and results["extract.thesis"] == "accepted"
+    # Each request asks for at most 64 output tokens.
+    assert {r["body"]["max_tokens"] for r in fake_api.requests} == {64}
