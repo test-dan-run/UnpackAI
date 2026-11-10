@@ -36,7 +36,7 @@ def test_unpack_stores_every_generated_item(client, fake_api):
     assert paper["title"].startswith("Mamba")
 
     gens = client.get(f"/api/papers/{pid}/generations").json()
-    assert [g["step"] for g in gens] == ["extract", "plain_writing"]
+    assert [g["step"] for g in gens] == ["extract", "figures", "plain_writing"]
     assert all(g["request_id"] == "req_test" and g["output"] for g in gens)
 
     d = paper["dossier"]["content"]
@@ -59,7 +59,7 @@ def test_unpack_stores_every_generated_item(client, fake_api):
     # A second request for the same paper doesn't call Claude again.
     again = client.post("/api/unpack", json={"url": "2312.00752"}).json()
     assert again == {**again, "paper_id": pid, "queued": False}
-    assert len(fake_api.requests) == 2
+    assert len(fake_api.requests) == 3
 
 
 def test_key_comes_from_docker_secret_and_never_reaches_logs_or_responses(unpacker, stored_key, fake_api, monkeypatch):
@@ -187,7 +187,7 @@ def test_secret_written_after_start_is_read_on_the_next_unpack(unpacker, fake_ap
 def test_paper_lists_its_calls_without_the_raw_output(client):
     pid = client.post("/api/unpack", json={"url": "2312.00752"}).json()["paper_id"]
     calls = client.get(f"/api/papers/{pid}").json()["calls"]
-    assert [c["step"] for c in calls] == ["extract", "plain_writing"]
+    assert [c["step"] for c in calls] == ["extract", "figures", "plain_writing"]
     assert all("output" not in c and c["model"] == "claude-opus-5-5" for c in calls)
 
 
@@ -218,7 +218,7 @@ def test_new_ideas_are_linked_to_earlier_dossiers(client, fake_api):
     fake_api.draft = S4_DRAFT
     s4 = client.post("/api/unpack", json={"url": "2111.00396"}).json()["paper_id"]
     # The library has no earlier dossier yet, so the compare call is skipped.
-    assert [c["step"] for c in client.get(f"/api/papers/{s4}").json()["calls"]] == ["extract", "plain_writing"]
+    assert [c["step"] for c in client.get(f"/api/papers/{s4}").json()["calls"]] == ["extract", "figures", "plain_writing"]
 
     fake_api.draft = {**DRAFT, "novelties": DRAFT["novelties"] + [
         {"what": "Hardware-aware scan", "status": "novel", "replaces": "Convolution", "why": "The scan runs in fast memory.", "where": "overview"},
@@ -239,7 +239,7 @@ def test_new_ideas_are_linked_to_earlier_dossiers(client, fake_api):
 
     paper = client.get(f"/api/papers/{mamba}").json()
     assert paper["status"] == "done", paper["error"]
-    assert [c["step"] for c in paper["calls"]] == ["extract", "compare", "plain_writing"]
+    assert [c["step"] for c in paper["calls"]] == ["extract", "figures", "compare", "plain_writing"]
     novelties = paper["dossier"]["content"]["novelties"]
     assert novelties[0]["earlier"] == {
         "paper_id": s4, "title": S4_DRAFT["paper"]["title"], "published": "Nov 2021",

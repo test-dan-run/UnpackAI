@@ -16,7 +16,9 @@ The sample dossiers have interactive figures that a person or Claude Code wrote 
 
 ## Decision
 
-UnpackAI uses option 2. The extract call fills a `data` field for each figure with one of five templates, and it sets the field to null when no template fits. `FIGURE_TEMPLATES` in `dossier_schema.py` defines the templates, and `GEN_FIG` in the page draws them.
+UnpackAI uses option 2. After the extract call, a separate figures call reads the source again and fills each figure with one of five templates. A figure that no template fits gets no data. `FIGURE_FIELDS` in `dossier_schema.py` defines the templates, and `GEN_FIG` in the page draws them.
+
+The first version put the templates in the extract call's schema, as a choice between five shapes for each figure. The API rejected the schema with the error "The compiled grammar is too large". The structured outputs documentation says that union types, i.e., `anyOf` and nullable fields, are "especially expensive because they create exponential compilation cost". The figures call has its own schema with one list for each template and no union types, and a missing number is a flag instead of a null. The extract and plain-writing calls keep the schema they had before figure data.
 
 | Template | What the reader can do | Fits figures like |
 | --- | --- | --- |
@@ -26,13 +28,13 @@ UnpackAI uses option 2. The extract call fills a `data` field for each figure wi
 | `steps` | Move through the steps, and see the text, a value, and the details of each step | Pipelines and calculations done step by step |
 | `threshold` | Move a threshold, and see which example items are kept | Filters that keep or drop data |
 
-The data holds only numbers and short labels, plus the text of each step, which goes through the plain-writing call. The server checks the data with `clean_figures()` after the extract call and on import, e.g., that each method has one value for each metric and that each power is between -4 and 4. It sets data that the page couldn't draw to null, so the figure falls back to its title and its note, and the unpack doesn't fail.
+The data holds only numbers and short labels, plus the text of each step, which goes through the plain-writing call. The server checks the data with `clean_figures()` after the figures call and on import, e.g., that each method has one value for each metric and that each power is between -4 and 4. It sets data that the page couldn't draw to null, so the figure falls back to its title and its note, and the unpack doesn't fail.
 
 ## Consequences
 
 - The page runs no code from Claude or from an export file, so a figure can't add a script to the page.
 - The page computes each output from the inputs, so the numbers stay correct when the reader moves a control.
 - Five templates can't show every idea, e.g., a router simulation or a number format heatmap. A figure that no template fits keeps its title and its note, and a new kind of figure needs a new template in the schema, the page, the fake server, and the tests.
-- The extract call returns more JSON, so it costs more output tokens.
+- The figures call reads the source a second time, so each paper with figures costs one more call and the input tokens of the source again.
 - Export files moved to version 2, because each figure now has a `data` field. The server still reads version 1 files, and their figures have no data.
 - The dossiers that the server stored before the change have figures without data, and they keep showing the title and the note until the paper is unpacked again.

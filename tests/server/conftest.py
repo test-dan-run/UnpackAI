@@ -37,14 +37,8 @@ DRAFT = {
         {"heading": "Linear scaling", "text": "Mamba scales linearly in sequence length.", "evidence": "Benchmark", "evidence_class": "ok", "where": "evidence"}
     ],
     "figures": [
-        {"tab": "overview", "kind": "block_loop_animation", "title": "Scan", "what_to_notice": "The scan runs once.", "uses_made_up_values": True,
-         "data": {"template": "steps", "value_name": "Tokens read", "value_unit": "tokens", "source": "Section 3.3", "steps": [
-             {"label": "Load", "text": "This step leverages fast memory.", "value": 0, "details": [{"label": "Memory", "value": "SRAM"}]},
-             {"label": "Scan", "text": "The scan reads each token once.", "value": 2048, "details": []},
-         ]}},
-        {"tab": "evidence", "kind": "method_comparison_simulation", "title": "Throughput", "what_to_notice": "Mamba is faster.", "uses_made_up_values": False,
-         "data": {"template": "comparison", "source": "Figure 8", "metrics": [{"name": "Throughput", "unit": "tokens/s", "higher_is_better": True}],
-                  "methods": [{"name": "Mamba", "is_new": True, "values": [5]}, {"name": "Transformer", "is_new": False, "values": [1]}]}},
+        {"tab": "overview", "kind": "block_loop_animation", "title": "Scan", "what_to_notice": "The scan runs once.", "uses_made_up_values": False},
+        {"tab": "evidence", "kind": "method_comparison_simulation", "title": "Throughput", "what_to_notice": "Mamba is faster.", "uses_made_up_values": False},
     ],
     "numbers": [{"value": "5x", "meaning": "throughput", "source": "Section 4.5"}],
     "not_disclosed": ["The data mix"],
@@ -61,6 +55,20 @@ S4_DRAFT = {
 }
 
 
+# The answer of the figures call for DRAFT, in the shape of FIGURES_SCHEMA.
+FIGURE_RESULT = {
+    "steps": [{"figure": 0, "made_up_values": True, "source": "Section 3.3", "value_name": "Tokens read", "value_unit": "tokens", "steps": [
+        {"label": "Load", "text": "This step leverages fast memory.", "value": 0, "has_value": False, "details": [{"label": "Memory", "value": "SRAM"}]},
+        {"label": "Scan", "text": "The scan reads each token once.", "value": 2048, "has_value": True, "details": []},
+    ]}],
+    "comparison": [{"figure": 1, "made_up_values": False, "source": "Figure 8", "metrics": [{"name": "Throughput", "unit": "tokens/s", "higher_is_better": True}],
+                    "methods": [{"name": "Mamba", "is_new": True, "values": [5], "not_reported": []}, {"name": "Transformer", "is_new": False, "values": [1], "not_reported": []}]}],
+    "calculator": [],
+    "timeline": [],
+    "threshold": [],
+}
+
+
 def rewrite(d):
     out = copy.deepcopy(d)
     out["thesis"] = "Mamba is a sequence model that uses selective state spaces instead of attention."
@@ -69,9 +77,8 @@ def rewrite(d):
     # A rewrite must not change non-prose fields. The merge keeps the original.
     out["novelties"][0]["status"] = "std"
     out["specs"][0]["value"] = "6x"
-    if out["figures"] and out["figures"][0]["data"]:
-        out["figures"][0]["data"]["steps"][0]["text"] = "The first step uses fast memory."
-        out["figures"][0]["data"]["steps"][1]["value"] = 99
+    if out.get("figure_texts"):
+        out["figure_texts"][0] = "The first step uses fast memory."
     return out
 
 
@@ -96,6 +103,7 @@ class FakeAPI:
         self.rewrite_fn = rewrite
         self.draft = DRAFT
         self.links = []
+        self.figure_result = FIGURE_RESULT
 
     def handler(self, request: httpx2.Request) -> httpx2.Response:
         body = json.loads(request.content)
@@ -104,6 +112,8 @@ class FakeAPI:
         if "<plain_writing_skill>" in system:
             draft = json.loads(body["messages"][0]["content"])
             text, stop = json.dumps(self.rewrite_fn(draft)), "end_turn"
+        elif system.startswith("You fill in the numbers"):
+            text, stop = json.dumps(self.figure_result), "end_turn"
         elif system.startswith("You compare the new ideas"):
             text, stop = json.dumps({"links": self.links}), "end_turn"
         else:

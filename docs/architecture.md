@@ -14,7 +14,7 @@ flowchart LR
   secret --> server
   server --> page
   server -- "reads at run time" --> skills
-  server -- "two or three calls per paper" --> claude["Claude API"]
+  server -- "three or four calls per paper" --> claude["Claude API"]
   server --> db[("SQLite on the<br>unpackai-data volume")]
 ```
 
@@ -61,7 +61,7 @@ The systems dossier has a roofline estimate that shows why standard attention is
 
 ### Unpack progress
 
-While an unpack runs, the page asks the server for the paper every three seconds, and the command bar marks the step that is running. The steps are the queue, the extract call, the compare call, the plain-writing call, and storing the dossier. When an unpack fails, the bar marks the step that failed, and it shows the error with a Try again button. You can also open the progress of a paper from the library.
+While an unpack runs, the page asks the server for the paper every three seconds, and the command bar marks the step that is running. The steps are the queue, the extract call, the figures call, the compare call, the plain-writing call, and storing the dossier. When an unpack fails, the bar marks the step that failed, and it shows the error with a Try again button. You can also open the progress of a paper from the library.
 
 ### Stored dossiers
 
@@ -72,7 +72,7 @@ The page builds a stored dossier from the JSON that the server returns, when you
 - The last tab has the claims, the numbers with their sources, and the information that the paper doesn't give.
 - Each tab in between has its introduction, the new ideas that the tab explains, and the figures that the extract call suggests.
 
-The page draws each figure of a stored dossier from one of five templates, which are a comparison of methods, a calculator, a timeline, a sequence of steps, and a threshold that keeps or drops example items. ADR 014 records the choice. The extract call fills the template with numbers and labels from the paper, and the page computes each output from the inputs, so the reader can move a control and see the effect. A figure that no template fits shows its title and its "What to notice" note.
+The page draws each figure of a stored dossier from one of five templates, which are a comparison of methods, a calculator, a timeline, a sequence of steps, and a threshold that keeps or drops example items. ADR 014 records the choice. The figures call fills the template with numbers and labels from the paper, and the page computes each output from the inputs, so the reader can move a control and see the effect. A figure that no template fits shows its title and its "What to notice" note.
 
 The page escapes every value from the server before it adds the value to the page, because the text comes from a paper, a web page, or an export file from another person.
 
@@ -84,13 +84,14 @@ An export file is JSON with the latest dossier of each finished paper. The file 
 
 ## Server
 
-The server in `src/server/unpackai_server/` takes a source, e.g., an arXiv link, a PDF URL, a blog URL, or pasted text, and it unpacks the source in the background. It makes two or three calls to Claude for each source, and it stores every call in the database.
+The server in `src/server/unpackai_server/` takes a source, e.g., an arXiv link, a PDF URL, a blog URL, or pasted text, and it unpacks the source in the background. It makes three or four calls to Claude for each source, and it stores every call in the database.
 
-1. The extract call reads the source and fills in the dossier fields, including the numbers for each figure template. The system prompt includes the unpack skill from `.claude/skills/unpack/SKILL.md`, so the server follows the same rules as Claude Code. An arXiv paper or PDF goes to Claude as a document URL, and a blog post is read with the web fetch tool.
-2. The compare call links the new ideas to the ideas in earlier dossiers. The server skips the call when the library has no other finished dossier. ADR 012 records the choice.
-3. The plain-writing call rewrites every prose field, with the plain-writing skill from `.claude/skills/plain-writing/SKILL.md` as the system prompt. The server keeps only the rewritten prose. Statuses, evidence labels, and numbers come from the earlier calls, so the rewrite can't change them.
+1. The extract call reads the source and fills in the dossier fields. The system prompt includes the unpack skill from `.claude/skills/unpack/SKILL.md`, so the server follows the same rules as Claude Code. An arXiv paper or PDF goes to Claude as a document URL, and a blog post is read with the web fetch tool.
+2. The figures call reads the source again and fills in the numbers for each figure template. It is a separate call because the API rejected the extract call's schema as too large when the figure templates were part of it. The server skips the call when the dossier has no figures.
+3. The compare call links the new ideas to the ideas in earlier dossiers. The server skips the call when the library has no other finished dossier. ADR 012 records the choice.
+4. The plain-writing call rewrites every prose field, with the plain-writing skill from `.claude/skills/plain-writing/SKILL.md` as the system prompt. The server keeps only the rewritten prose. Statuses, evidence labels, and numbers come from the earlier calls, so the rewrite can't change them.
 
-After the extract call, the server sets the data of each figure that the page couldn't draw to null, e.g., a comparison where a method has the wrong number of values. The server stores a dossier that it unpacked only after the plain-writing call succeeds, so every dossier that the server unpacks has gone through the skill. After the plain-writing call, the server runs the text check from `text_check.py` on every prose field, and it stores the problems it finds with the dossier for review in the API. If either skill file is missing, the unpack stops with an error.
+After the figures call, the server sets the data of each figure that the page couldn't draw to null, e.g., a comparison where a method has the wrong number of values. The server stores a dossier that it unpacked only after the plain-writing call succeeds, so every dossier that the server unpacks has gone through the skill. After the plain-writing call, the server runs the text check from `text_check.py` on every prose field, and it stores the problems it finds with the dossier for review in the API. If either skill file is missing, the unpack stops with an error.
 
 Every call uses `claude-opus-5-5` with adaptive thinking and streaming. They also use the `fallbacks: "default"` setting, so if Claude declines a request, the API tries Anthropic's recommended fallback model. The `generations` table records which model answered. You can set a different model with the `UNPACKAI_MODEL` variable when you run `scripts/compose-up.sh`.
 
@@ -179,8 +180,8 @@ The full app would process each new paper in a fixed order, and the server alrea
 | --- | --- |
 | Add a new paper or blog post | Built. You paste a link in the command bar, and UnpackAI doesn't collect new papers on its own (ADR 010). |
 | Read the sections, tables, figures, and equations | Built in part. Claude reads a PDF from its URL and a blog post with web fetch, and the server doesn't use the LaTeX source from arXiv yet. |
-| Fill in the dossier fields, e.g., the new ideas, the claims, and the numbers with their sources | Built. The first call returns the fields as JSON. |
+| Fill in the dossier fields, e.g., the new ideas, the claims, and the numbers with their sources | Built. The extract call returns the fields as JSON. |
 | Compare the paper with earlier dossiers, so reused ideas are marked as inherited | Built. The compare call links each new idea to the same idea or the idea it builds on in an earlier dossier (ADR 012). It doesn't see the sample dossiers, and a large library will need a search step that picks the closest dossiers first. |
-| Rewrite every paragraph with the plain-writing skill | Built. The second call rewrites the prose, and the server stores a dossier only after the rewrite succeeds. |
+| Rewrite every paragraph with the plain-writing skill | Built. The last call rewrites the prose, and the server stores a dossier only after the rewrite succeeds. |
 | Share dossiers with other people | Built. You export dossiers to a file, and another person imports the file into their library (ADR 013). |
-| Show the dossier in the page, with interactive figures filled in from the paper's numbers | Built. The page draws each figure from one of five templates that the extract call fills with the paper's numbers (ADR 014). A figure that no template fits shows only its title and its note. |
+| Show the dossier in the page, with interactive figures filled in from the paper's numbers | Built. The page draws each figure from one of five templates that the figures call fills with the paper's numbers (ADR 014). A figure that no template fits shows only its title and its note. |

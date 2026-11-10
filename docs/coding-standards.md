@@ -30,13 +30,14 @@ The text check in `src/server/unpackai_server/text_check.py` finds the problems 
 - Add a `<p class="notice"><b>What to notice:</b> ...</p>` note that says what to look for and how it relates to the paper's result.
 - Give each SVG and each group of buttons an `aria-label`, and give each slider a `<label>`.
 - A stored dossier draws its figures only from the templates in `GEN_FIG`, with data from `FIGURE_TEMPLATES` in `dossier_schema.py`. Don't add a way for the server, Claude, or an export file to send HTML or a script for a figure.
-- A new figure template needs its schema in `FIGURE_TEMPLATES`, its checks in `figure_data_problem()`, its drawing function in `GEN_FIG`, a rule in the extract prompt, a figure in `tests/web/fake_server.js`, and a check of its controls in `tests/web/check_dossiers.js`.
+- A new figure template needs its fields in `FIGURE_FIELDS`, its checks in `figure_data_problem()`, its drawing function in `GEN_FIG`, a rule in `FIGURES_SYSTEM`, a figure in `tests/web/fake_server.js`, and a check of its controls in `tests/web/check_dossiers.js`.
 
 ## Server
 
 - Make every call to Claude in `unpack.py`, through `Unpacker._call()`. The method stores each call in the `generations` table, including failed calls.
 - Use the model `claude-opus-5-5` unless `UNPACKAI_MODEL` names another one. Use streaming with adaptive thinking, structured output with the dossier schema, and `fallbacks: "default"`.
 - Every prose field goes through the plain-writing call. A new call that returns prose must run before the plain-writing call, and its fields must be in `PROSE_FIELDS`. A call that returns only links, statuses, or numbers can run at any step.
+- Don't use `anyOf`, nullable fields, or optional fields in a schema that goes to Claude. The API compiles each schema into a grammar, union types make the grammar grow fast, and the API rejects a grammar that is too large. Use a flag, e.g., `has_value`, instead of a null, and add a test like `test_schemas_sent_to_claude_have_no_union_types`.
 - Check `stop_reason` before you read the content, and treat `refusal` and `max_tokens` as failures.
 - Read the API key only with `secret_store.read_api_key()`. Don't read it from an environment variable, any other file, or a request header.
 - Log only the method, the path, the status code, and the time taken for a request. Don't log headers, query strings, or bodies, and pass every error message through `describe_error()` before you store or log it.

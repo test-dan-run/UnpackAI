@@ -11,13 +11,22 @@ which isn't in DOSSIER_SCHEMA because the extract call doesn't fill it in. A
 link holds no new prose. It names the earlier paper and copies the earlier
 idea's text, which already went through the plain-writing pass.
 
-Each figure can carry "data" for one of the figure templates in
+Each stored figure can carry "data" for one of the figure templates in
 FIGURE_TEMPLATES, and the page draws the figure from it. The data holds
 numbers and short labels from the paper, never HTML or code, so the page can
 escape every value. clean_figures() checks the parts that the JSON schema
 can't check, e.g., that each method has one value for each metric, and it
 sets the data to null when the page couldn't draw it. A figure without data
 shows only its title and its "What to notice" note.
+
+The API compiles each output schema into a grammar, and it rejects a grammar
+that is too large. DOSSIER_SCHEMA with the figure templates in it was too
+large, so DOSSIER_SCHEMA has no figure data. A separate figures call returns
+FIGURES_SCHEMA, which has one list for each template, and apply_figure_data()
+moves the data into the figures. The plain-writing call gets the text of the
+figure steps as a flat list, in PLAIN_SCHEMA. STORED_DOSSIER_SCHEMA is the
+shape of a stored dossier with its figure data, and the server uses it only
+to check export files.
 """
 from __future__ import annotations
 
@@ -66,46 +75,88 @@ S = {"type": "string"}
 N = {"type": "number"}
 
 
-def _template(name: str, props: dict[str, Any]) -> dict[str, Any]:
-    return _obj({"template": {"type": "string", "enum": [name]}, **props, "source": S})
-
-
-# The figure templates that the page can draw. "source" names the section,
-# table, or figure of the paper that the numbers come from.
-FIGURE_TEMPLATES: dict[str, dict[str, Any]] = {
+# The fields of each figure template that the page can draw. Every template
+# also has "source", which names the section, table, or figure of the paper
+# that the numbers come from.
+FIGURE_FIELDS: dict[str, dict[str, Any]] = {
     # Bars for each method on one metric at a time, with buttons for the metric.
-    "comparison": _template("comparison", {
+    "comparison": {
         "metrics": _arr(_obj({"name": S, "unit": S, "higher_is_better": {"type": "boolean"}})),
         "methods": _arr(_obj({"name": S, "is_new": {"type": "boolean"}, "values": _arr(_nullable(N))})),
-    }),
+    },
     # Sliders for the inputs. Each output is constant * product(input ** power).
-    "calculator": _template("calculator", {
+    "calculator": {
         "inputs": _arr(_obj({"name": S, "unit": S, "choices": _arr(N), "default_index": {"type": "integer"}, "from_paper": {"type": "boolean"}})),
         "outputs": _arr(_obj({"name": S, "unit": S, "constant": N, "powers": _arr(N)})),
-    }),
+    },
     # A value over time in phases, e.g., a learning rate schedule, with a slider for the time.
-    "timeline": _template("timeline", {
+    "timeline": {
         "x_name": S,
         "x_unit": S,
         "y_name": S,
         "y_unit": S,
         "phases": _arr(_obj({"label": S, "start": N, "end": N, "start_value": N, "end_value": N, "shape": {"type": "string", "enum": ["constant", "linear", "cosine"]}})),
-    }),
+    },
     # A sequence of steps that the reader moves through, with an optional value per step.
-    "steps": _template("steps", {
+    "steps": {
         "value_name": S,
         "value_unit": S,
         "steps": _arr(_obj({"label": S, "text": S, "value": _nullable(N), "details": _arr(_obj({"label": S, "value": S}))})),
-    }),
+    },
     # Example items with a score, and a slider for the threshold that keeps or drops them.
-    "threshold": _template("threshold", {
+    "threshold": {
         "score_name": S,
         "keep_when": {"type": "string", "enum": ["at_least", "at_most"]},
         "thresholds": _arr(N),
         "default_index": {"type": "integer"},
         "items": _arr(_obj({"label": S, "score": N})),
-    }),
+    },
 }
+
+# The shape of the data of a stored figure, with the template's name.
+FIGURE_TEMPLATES: dict[str, dict[str, Any]] = {
+    name: _obj({"template": {"type": "string", "enum": [name]}, **fields, "source": S}) for name, fields in FIGURE_FIELDS.items()
+}
+
+# The output of the figures call. The API docs say that each union type,
+# i.e., anyOf or a nullable field, makes the grammar grow fast, so the schema
+# has none. Each template has its own list instead of a choice between
+# templates, and a missing number is a flag instead of null:
+# - comparison: "not_reported" lists the metric indexes without a value
+# - steps: "has_value" is false when a step has no value
+# apply_figure_data() turns both into nulls in the stored data. "figure" is
+# the index of the figure in the dossier.
+_CALL_FIELDS = {
+    **FIGURE_FIELDS,
+    "comparison": {
+        **FIGURE_FIELDS["comparison"],
+        "methods": _arr(_obj({"name": S, "is_new": {"type": "boolean"}, "values": _arr(N), "not_reported": _arr({"type": "integer"})})),
+    },
+    "steps": {
+        **FIGURE_FIELDS["steps"],
+        "steps": _arr(_obj({"label": S, "text": S, "value": N, "has_value": {"type": "boolean"}, "details": _arr(_obj({"label": S, "value": S}))})),
+    },
+}
+FIGURES_SCHEMA: dict[str, Any] = _obj({
+    name: _arr(_obj({"figure": {"type": "integer"}, "made_up_values": {"type": "boolean"}, **fields, "source": S}))
+    for name, fields in _CALL_FIELDS.items()
+})
+
+
+def _stored_data(name: str, item: dict) -> dict:
+    """Turn an item from the figures call into stored figure data."""
+    import copy
+
+    data = {"template": name, **{k: copy.deepcopy(v) for k, v in item.items() if k not in ("figure", "made_up_values")}}
+    if name == "comparison":
+        for m in data.get("methods") or []:
+            missing = set(m.pop("not_reported", None) or [])
+            m["values"] = [None if j in missing else v for j, v in enumerate(m.get("values") or [])]
+    if name == "steps":
+        for st in data.get("steps") or []:
+            if not st.pop("has_value", True):
+                st["value"] = None
+    return data
 
 DOSSIER_SCHEMA: dict[str, Any] = _obj(
     {
@@ -152,7 +203,6 @@ DOSSIER_SCHEMA: dict[str, Any] = _obj(
                     "title": S,
                     "what_to_notice": S,
                     "uses_made_up_values": {"type": "boolean"},
-                    "data": _nullable({"anyOf": list(FIGURE_TEMPLATES.values())}),
                 }
             )
         ),
@@ -196,6 +246,26 @@ PROSE_FIELDS = [
     "not_disclosed[]",
     "figures[].data.steps[].text",
 ]
+FIGURE_TEXTS = "figures[].data.steps[].text"
+
+
+def _with_figure_data(schema: dict[str, Any]) -> dict[str, Any]:
+    import copy
+
+    out = copy.deepcopy(schema)
+    figure = out["properties"]["figures"]["items"]
+    figure["properties"]["data"] = _nullable({"anyOf": list(FIGURE_TEMPLATES.values())})
+    figure["required"].append("data")
+    return out
+
+
+STORED_DOSSIER_SCHEMA = _with_figure_data(DOSSIER_SCHEMA)
+
+PLAIN_SCHEMA: dict[str, Any] = {
+    **DOSSIER_SCHEMA,
+    "properties": {**DOSSIER_SCHEMA["properties"], "figure_texts": _arr(S)},
+    "required": [*DOSSIER_SCHEMA["required"], "figure_texts"],
+}
 
 
 class ShapeMismatch(ValueError):
@@ -227,6 +297,18 @@ def _get_all(doc: Any, parts: list[str]) -> list[tuple[list, str | int]]:
     return _get_all(doc.get(head), rest)
 
 
+def rewrite_input(dossier: dict) -> dict:
+    """Return the input of the plain-writing call, in the shape of PLAIN_SCHEMA.
+
+    The input has no links and no figure data. The text of every figure step
+    is in "figure_texts" instead, in the order of FIGURE_TEXTS.
+    """
+    out = without_links(dossier)
+    out["figures"] = [{k: v for k, v in f.items() if k != "data"} for f in dossier["figures"]]
+    out["figure_texts"] = [c[k] for c, k in _get_all(dossier, FIGURE_TEXTS.split("."))]
+    return out
+
+
 def merge_prose(original: dict, rewritten: dict) -> dict:
     """Copy the prose fields from the rewrite into a copy of the original.
 
@@ -239,7 +321,11 @@ def merge_prose(original: dict, rewritten: dict) -> dict:
     for path in PROSE_FIELDS:
         parts = path.split(".")
         dst = _get_all(out, parts)
-        src = _get_all(rewritten, parts)
+        if path == FIGURE_TEXTS:
+            texts = rewritten.get("figure_texts") or []
+            src = [(texts, i) for i in range(len(texts))]
+        else:
+            src = _get_all(rewritten, parts)
         if len(dst) != len(src):
             raise ShapeMismatch(f"{path}: {len(dst)} values in the original, {len(src)} in the rewrite")
         for (dc, dk), (sc, sk) in zip(dst, src):
@@ -431,6 +517,30 @@ def figure_data_problem(data: dict) -> str | None:
         if not finite(*data["thresholds"], *(i["score"] for i in data["items"])) or not 0 <= data["default_index"] < len(data["thresholds"]):
             return "a threshold, a score, or the default isn't valid"
     return None
+
+
+def apply_figure_data(dossier: dict, result: dict) -> dict:
+    """Add the data from the figures call to a copy of the dossier, and clean it.
+
+    An item with a figure index that isn't in the dossier is dropped, and
+    each figure keeps only its first item. A figure without an item gets no
+    data.
+    """
+    import copy
+
+    out = copy.deepcopy(dossier)
+    figures = out["figures"]
+    for f in figures:
+        f["data"] = None
+    for name in FIGURE_FIELDS:
+        for item in result.get(name) or []:
+            i = item.get("figure")
+            if not (isinstance(i, int) and not isinstance(i, bool) and 0 <= i < len(figures)) or figures[i]["data"] is not None:
+                continue
+            figures[i]["data"] = _stored_data(name, item)
+            if item.get("made_up_values"):
+                figures[i]["uses_made_up_values"] = True
+    return clean_figures(out)
 
 
 def clean_figures(dossier: dict) -> dict:

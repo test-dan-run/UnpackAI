@@ -18,7 +18,7 @@ version 1 files, and it gives their figures no data. On import and export,
 clean_figures() sets figure data that the page couldn't draw to null.
 
 An export file comes from another person, so the server treats it like text
-from a paper. It checks the shape of every dossier against DOSSIER_SCHEMA,
+from a paper. It checks the shape of every dossier against STORED_DOSSIER_SCHEMA,
 it accepts only http and https URLs, and it runs the text check again. If any
 paper in the file has a problem, the server stores none of the papers.
 """
@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .db import Database
-from .dossier_schema import DOSSIER_SCHEMA, RELATIONS, clean_figures, shape_problem, without_links
+from .dossier_schema import RELATIONS, STORED_DOSSIER_SCHEMA, clean_figures, shape_problem, without_links
 from .unpack import text_problems
 
 FORMAT = "unpackai-export"
@@ -105,7 +105,7 @@ def _check_paper(p: Any) -> str | None:
         problem = _check_link(n.get("earlier"), f"novelties[{i}].earlier")
         if problem:
             return problem
-    problem = shape_problem(without_links(d), DOSSIER_SCHEMA)
+    problem = shape_problem(without_links(d), STORED_DOSSIER_SCHEMA)
     if problem:
         return problem
     url = d["paper"]["source_url"]

@@ -1,11 +1,15 @@
 """The unpack pipeline. Every call to Claude in the app goes through this module.
 
-An unpack makes two or three calls:
+An unpack makes three or four calls:
 
 1. The extract call reads the source and fills in the dossier fields.
-2. The compare call links the new ideas to the ideas in earlier dossiers. The
+2. The figures call reads the source again and fills in the numbers for each
+   figure template. It has its own call because the figure templates made the
+   extract schema too large for the API. The server skips it when the dossier
+   has no figures.
+3. The compare call links the new ideas to the ideas in earlier dossiers. The
    server skips it when the database has no other finished dossier.
-3. The plain-writing call rewrites every prose field with the plain-writing
+4. The plain-writing call rewrites every prose field with the plain-writing
    skill from .claude/skills/plain-writing/SKILL.md as the system prompt.
 
 Each call is stored in the generations table, and the finished dossier is
@@ -28,10 +32,13 @@ from .db import Database
 from .dossier_schema import (
     COMPARE_SCHEMA,
     DOSSIER_SCHEMA,
+    FIGURES_SCHEMA,
+    PLAIN_SCHEMA,
     ShapeMismatch,
+    apply_figure_data,
     apply_links,
-    clean_figures,
     merge_prose,
+    rewrite_input,
     prose_values,
     without_links,
 )
@@ -110,18 +117,25 @@ Rules for the fields:
 - Each novelty and claim names the tab id that explains it in "where".
 - Set uses_made_up_values to true when a figure needs example values that the source doesn't give.
 
-Rules for the figure data. The page can't run code from you, so it draws each figure from a fixed template that you fill with numbers:
-- Fill "data" for each figure with the template that fits it best. Use "comparison" for results of several methods on the same metrics, "calculator" for a size or a cost that you get by multiplying the inputs, "timeline" for a schedule over training steps or tokens, "steps" for a pipeline or a calculation done step by step, and "threshold" for a score threshold that keeps or drops items. Set data to null when no template fits the figure.
-- Every number in the data comes from the source, and "source" names the section, table, or figure. When a template needs example values that the source doesn't give, e.g., example items for a threshold, set uses_made_up_values to true. For a calculator input that the source doesn't give, set from_paper to false.
-- A calculator output is the constant times each input raised to its power. For example, a cache size in bytes of layers times tokens times 2 bytes has a power of 1 for both inputs and a constant of 2. Use powers from -4 to 4, and give each input the values from the source as its choices.
-- In a comparison, mark the method that the source presents as new with is_new, and use null for a value that the source doesn't report.
-- Keep names and labels short, e.g., a method or a metric name, and write the explanation in the text of each step and in what_to_notice.
-
 <unpack_skill>
 {unpack_skill}
 </unpack_skill>"""
 
 EXTRACT_USER = "Unpack the source above into a dossier. The source location is: {location}"
+
+FIGURES_SYSTEM = """You fill in the numbers for the interactive figures of an UnpackAI dossier. UnpackAI is a web app that explains new AI research papers and lab blog posts, and each dossier has figures that let the reader change an input and see the effect.
+
+You get the source and a JSON list of the figures that the dossier plans, with the index, title, and "What to notice" note of each figure. The page can't run code from you, so it draws each figure from a fixed template. Return the data for each figure in the list for its template, with the index of the figure in "figure".
+
+Rules for the figure data:
+- Use the template that fits the figure best. Use "comparison" for results of several methods on the same metrics, "calculator" for a size or a cost that you get by multiplying the inputs, "timeline" for a schedule over training steps or tokens, "steps" for a pipeline or a calculation done step by step, and "threshold" for a score threshold that keeps or drops items. Leave a figure out of every list when no template fits it.
+- Every number comes from the source, and "source" names the section, table, or figure. Don't guess a value that the source doesn't give. When a template needs example values that the source doesn't give, e.g., example items for a threshold, set made_up_values to true. For a calculator input that the source doesn't give, set from_paper to false.
+- A calculator output is the constant times each input raised to its power. For example, a cache size in bytes of layers times tokens times 2 bytes has a power of 1 for both inputs and a constant of 2. Use powers from -4 to 4, and give each input the values from the source as its choices.
+- In a comparison, give each method one value for each metric, in the order of the metrics. Mark the method that the source presents as new with is_new. When the source doesn't report a value, write 0 and add the index of the metric to not_reported.
+- In steps, set has_value to false and write 0 for a step that has no value.
+- Keep names and labels short, e.g., a method or a metric name. Write the explanation in the text of each step, in plain sentences."""
+
+FIGURES_USER = "Fill in the data for the figures below. The source location is: {location}\n\n{figures}"
 
 COMPARE_SYSTEM = """You compare the new ideas in a paper with the ideas in earlier UnpackAI dossiers. UnpackAI marks each idea in a paper as new, inherited from earlier work, or standard practice, and a link to an earlier dossier shows the reader where an idea came from.
 
@@ -136,14 +150,14 @@ Rules for the links:
 
 PLAIN_SYSTEM = """You edit the text of UnpackAI dossiers so it follows the plain-writing skill below.
 
-You get a dossier as JSON. Rewrite the prose fields so each one follows the skill, and return the whole dossier in the same shape. The prose fields are the thesis, the highlights, and the title, label, lede, what, replaces, why, heading, text, what_to_notice, and meaning fields, the not_disclosed items, and the text of each step in a figure's data.
+You get a dossier as JSON. Rewrite the prose fields so each one follows the skill, and return the whole dossier in the same shape. The prose fields are the thesis, the highlights, and the title, label, lede, what, replaces, why, heading, text, what_to_notice, and meaning fields, and the not_disclosed and figure_texts items.
 
 Keep these things exactly as they are:
 - Every value that isn't a prose field, e.g., a status, an evidence label, a tab id, a number, or a URL
 - The number of items in every list, and their order
 - Every number, name, and technical term inside the prose, unless the skill asks you to define a term
 
-Each highlight must be an exact phrase from the rewritten thesis.
+Each highlight must be an exact phrase from the rewritten thesis. The figure_texts list holds the text of the steps in the figures, so rewrite each item and keep the list the same length.
 
 <plain_writing_skill>
 {plain_writing_skill}
@@ -227,23 +241,27 @@ class Unpacker:
             )
             raise
 
-    def extract(self, paper_id: int, source: Source) -> dict:
-        system = EXTRACT_SYSTEM.format(unpack_skill=_read(UNPACK_SKILL, "unpack"))
+    @staticmethod
+    def _source_content(source: Source, request: str) -> tuple[list, list]:
+        """Return the message content that gives Claude the source, and the tools it needs."""
         if source.kind in ("arxiv", "pdf_url"):
             content = [
                 {"type": "document", "source": {"type": "url", "url": source.url}},
-                {"type": "text", "text": EXTRACT_USER.format(location=source.url)},
+                {"type": "text", "text": request.replace("{location}", source.url)},
             ]
-            tools = []
-        elif source.kind == "web_url":
-            content = [{"type": "text", "text": f"Read the page at {source.url} with web fetch, and also read the paper or code it links to if it has one. " + EXTRACT_USER.format(location=source.url)}]
-            tools = [{"type": "web_fetch_20260209", "name": "web_fetch", "max_uses": 6}]
-        else:
-            content = [
-                {"type": "document", "source": {"type": "text", "media_type": "text/plain", "data": source.text}},
-                {"type": "text", "text": EXTRACT_USER.format(location="text pasted by the user")},
-            ]
-            tools = []
+            return content, []
+        if source.kind == "web_url":
+            content = [{"type": "text", "text": f"Read the page at {source.url} with web fetch, and also read the paper or code it links to if it has one. " + request.replace("{location}", source.url)}]
+            return content, [{"type": "web_fetch_20260209", "name": "web_fetch", "max_uses": 6}]
+        content = [
+            {"type": "document", "source": {"type": "text", "media_type": "text/plain", "data": source.text}},
+            {"type": "text", "text": request.replace("{location}", "text pasted by the user")},
+        ]
+        return content, []
+
+    def extract(self, paper_id: int, source: Source) -> dict:
+        system = EXTRACT_SYSTEM.format(unpack_skill=_read(UNPACK_SKILL, "unpack"))
+        content, tools = self._source_content(source, EXTRACT_USER)
         params: dict[str, Any] = {
             "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
             "output_config": {"effort": "high", "format": {"type": "json_schema", "schema": DOSSIER_SCHEMA}},
@@ -252,6 +270,29 @@ class Unpacker:
         if tools:
             params["tools"] = tools
         return self._call(paper_id, "extract", **params)
+
+    def figures(self, paper_id: int, source: Source, draft: dict) -> dict:
+        """Fill in the data of each figure with a separate call that reads the source again.
+
+        The figure templates make the schema too large for the extract call,
+        so the figures have their own call with FIGURES_SCHEMA.
+        """
+        if not draft["figures"]:
+            return apply_figure_data(draft, {})
+        plan = [
+            {"figure": i, "kind": f["kind"], "title": f["title"], "what_to_notice": f["what_to_notice"]}
+            for i, f in enumerate(draft["figures"])
+        ]
+        request = FIGURES_USER.replace("{figures}", json.dumps(plan, ensure_ascii=False))
+        content, tools = self._source_content(source, request)
+        params: dict[str, Any] = {
+            "system": [{"type": "text", "text": FIGURES_SYSTEM}],
+            "output_config": {"effort": "high", "format": {"type": "json_schema", "schema": FIGURES_SCHEMA}},
+            "messages": [{"role": "user", "content": content}],
+        }
+        if tools:
+            params["tools"] = tools
+        return apply_figure_data(draft, self._call(paper_id, "figures", **params))
 
     def compare(self, paper_id: int, draft: dict) -> dict:
         earlier = {d["paper_id"]: d for d in self.db.earlier_dossiers(exclude=paper_id)}
@@ -280,14 +321,15 @@ class Unpacker:
 
     def plain_writing(self, paper_id: int, dossier: dict) -> dict:
         system = PLAIN_SYSTEM.format(plain_writing_skill=_read(PLAIN_WRITING_SKILL, "plain-writing"))
-        # The links aren't in DOSSIER_SCHEMA and hold no new prose, so the
-        # rewrite doesn't see them. merge_prose keeps them from the original.
+        # The links and the figure data aren't in PLAIN_SCHEMA. The links hold
+        # no new prose, and the text of the figure steps goes in a flat list.
+        # merge_prose keeps everything else from the original.
         rewritten = self._call(
             paper_id,
             "plain_writing",
             system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            output_config={"effort": "medium", "format": {"type": "json_schema", "schema": DOSSIER_SCHEMA}},
-            messages=[{"role": "user", "content": json.dumps(without_links(dossier), ensure_ascii=False)}],
+            output_config={"effort": "medium", "format": {"type": "json_schema", "schema": PLAIN_SCHEMA}},
+            messages=[{"role": "user", "content": json.dumps(rewrite_input(dossier), ensure_ascii=False)}],
         )
         try:
             return merge_prose(dossier, rewritten)
@@ -299,11 +341,13 @@ class Unpacker:
         self.db.set_status(paper_id, "running")
         try:
             self.last_step[paper_id] = "extract"
-            # Figure data that the page couldn't draw is set to null here, so
-            # the later calls and the stored dossier only have data that works.
-            draft = clean_figures(self.extract(paper_id, source))
+            draft = self.extract(paper_id, source)
             p = draft["paper"]
             self.db.set_metadata(paper_id, title=p["title"], org=p["org"], published=p["published"], paper_type=p["paper_type"])
+            # Figure data that the page couldn't draw is set to null, so the
+            # later calls and the stored dossier only have data that works.
+            self.last_step[paper_id] = "figures"
+            draft = self.figures(paper_id, source, draft)
             self.last_step[paper_id] = "compare"
             draft = self.compare(paper_id, draft)
             self.last_step[paper_id] = "plain_writing"

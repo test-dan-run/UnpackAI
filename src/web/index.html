@@ -1184,8 +1184,8 @@ renderChips(); renderLib();
 // dossiers only. The browser never sees the API key, because the server makes
 // every call to Claude.
 const API_ON = location.protocol==="http:"||location.protocol==="https:";
-const API_STEPS = ["Wait in the queue","Read the source and fill in the dossier","Compare the new ideas with earlier dossiers","Rewrite the prose with the plain-writing skill","Store the dossier"];
-const API_STEP_AT = {extract:1, compare:2, plain_writing:3, text_check:4};
+const API_STEPS = ["Wait in the queue","Read the source and fill in the dossier","Fill in the figures with the paper's numbers","Compare the new ideas with earlier dossiers","Rewrite the prose with the plain-writing skill","Store the dossier"];
+const API_STEP_AT = {extract:1, figures:2, compare:3, plain_writing:4, text_check:5};
 let apiReachable=false, apiTracked=null, apiTimer=null;
 async function apiFetch(path, opts){
   const r=await fetch(path, opts);
