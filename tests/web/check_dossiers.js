@@ -67,12 +67,27 @@ async function checkServerViews(page, v, label) {
 
   expect((await text('#apiNote')) === 'Connected to the server', `the header note says "${await text('#apiNote')}"`);
   const statuses = await page.$$eval('#libList .status', els => els.map(e => e.textContent));
-  expect(statuses.join() === 'Failed,Unpacking,Unpacked,Sample dossier,Sample dossier,Sample dossier', `the library statuses are [${statuses}]`);
+  expect(statuses.join() === 'Unpacked,Failed,Unpacking,Unpacked,Sample dossier,Sample dossier,Sample dossier', `the library statuses are [${statuses}]`);
 
   // The stored dossier escapes the title from the server.
   const h1 = await text('.doc[data-doc="p1"] h1');
   const injected = await page.evaluate(() => !!document.querySelector('.doc[data-doc="p1"] img') || !!window.__xss);
   expect(h1.includes('<img') && !injected, 'the stored dossier doesn\'t escape its title');
+
+  // An idea links to the earlier dossier it came from, and the earlier
+  // dossier lists the later papers that reuse its ideas.
+  await page.evaluate(() => { location.hash = '#p1-overview'; });
+  await page.waitForTimeout(150);
+  const links = await page.$$eval('.doc[data-doc="p1"] [data-panel="overview"] .gen-link', els => els.map(e => e.textContent));
+  expect(links[0] === 'Builds on "Structured state space layer" in Efficiently Modeling Long Sequences with Structured State Spaces', `the first idea's link says "${links[0]}"`);
+  expect((links[1] || '').startsWith('Same idea as'), 'the second idea doesn\'t link to the earlier dossier');
+  await page.click('.doc[data-doc="p1"] [data-panel="overview"] .gen-link a');
+  await page.waitForTimeout(300);
+  const later = await page.$$eval('.doc[data-doc="p4"] [data-panel="overview"] .gaps li', els => els.map(e => e.textContent));
+  expect(later.length === 2 && later[0].includes('<img') && later[1].includes('reuses "Structured state space layer"'), `the earlier dossier lists the later ideas as [${later}]`);
+  const injectedLater = await page.evaluate(() => !!document.querySelector('.doc[data-doc="p4"] img'));
+  expect(!injectedLater, 'the list of later papers doesn\'t escape the title');
+  if (outDir && (!onlyDoc || onlyDoc === 'p4')) await page.screenshot({ path: path.join(outDir, `${v.name}-server-p4-later.png`), fullPage: true });
 
   // Opening a paper that is still running shows its step.
   await page.click('#libList >> text=Transformers are SSMs');

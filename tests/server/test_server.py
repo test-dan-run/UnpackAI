@@ -212,3 +212,67 @@ def test_retry_starts_a_failed_unpack_again(client, fake_api):
     tid = client.post("/api/unpack", json={"text": "Full text of a paper"}).json()["paper_id"]
     r = client.post(f"/api/papers/{tid}/retry")
     assert r.status_code == 400 and "send the text again" in r.json()["detail"]
+
+
+S4_DRAFT = {
+    **DRAFT,
+    "paper": {**DRAFT["paper"], "title": "Efficiently Modeling Long Sequences with Structured State Spaces", "published": "Nov 2021", "source_url": "https://arxiv.org/pdf/2111.00396"},
+    "novelties": [
+        {"what": "Structured state space layer", "status": "novel", "replaces": "Attention", "why": "The layer has a fast convolution form.", "where": "overview"},
+        {"what": "HiPPO initialization", "status": "inh", "replaces": "Random initialization", "why": "The matrix remembers the past input.", "where": "overview"},
+    ],
+}
+
+
+def test_new_ideas_are_linked_to_earlier_dossiers(client, fake_api):
+    fake_api.draft = S4_DRAFT
+    s4 = client.post("/api/unpack", json={"url": "2111.00396"}).json()["paper_id"]
+    # The library has no earlier dossier yet, so the compare call is skipped.
+    assert [c["step"] for c in client.get(f"/api/papers/{s4}").json()["calls"]] == ["extract", "plain_writing"]
+
+    fake_api.draft = {**DRAFT, "novelties": DRAFT["novelties"] + [
+        {"what": "Hardware-aware scan", "status": "novel", "replaces": "Convolution", "why": "The scan runs in fast memory.", "where": "overview"},
+        {"what": "Gated MLP block", "status": "novel", "replaces": "Attention block", "why": "It mixes channels.", "where": "overview"},
+    ]}
+    fake_api.links = [
+        {"novelty": 0, "earlier_paper": s4, "earlier_novelty": 0, "relation": "builds_on"},
+        {"novelty": 1, "earlier_paper": s4, "earlier_novelty": 0, "relation": "same_idea"},
+        # Each of the links below is dropped: a second link for novelty 0, an
+        # unknown paper, an index out of range, and a link to the paper itself.
+        {"novelty": 0, "earlier_paper": s4, "earlier_novelty": 1, "relation": "same_idea"},
+        {"novelty": 2, "earlier_paper": 999, "earlier_novelty": 0, "relation": "same_idea"},
+        {"novelty": 2, "earlier_paper": s4, "earlier_novelty": 7, "relation": "same_idea"},
+        {"novelty": 2, "earlier_paper": s4 + 1, "earlier_novelty": 0, "relation": "same_idea"},
+    ]
+    mamba = client.post("/api/unpack", json={"url": "2312.00752"}).json()["paper_id"]
+    assert mamba == s4 + 1
+
+    paper = client.get(f"/api/papers/{mamba}").json()
+    assert paper["status"] == "done", paper["error"]
+    assert [c["step"] for c in paper["calls"]] == ["extract", "compare", "plain_writing"]
+    novelties = paper["dossier"]["content"]["novelties"]
+    assert novelties[0]["earlier"] == {
+        "paper_id": s4, "title": S4_DRAFT["paper"]["title"], "published": "Nov 2021",
+        "idea": "Structured state space layer", "relation": "builds_on",
+    }
+    # A link to the same idea marks a new idea as inherited. The plain-writing
+    # rewrite still ran, and it didn't drop the links.
+    assert novelties[0]["status"] == "novel" and novelties[0]["why"] == "The parameters depend on the input."
+    assert novelties[1]["status"] == "inh" and novelties[1]["earlier"]["relation"] == "same_idea"
+    assert novelties[2]["earlier"] is None and novelties[2]["status"] == "novel"
+
+    # The compare call got the ideas of the earlier dossier, and the rewrite
+    # didn't get the links.
+    compare = next(r["body"] for r in fake_api.requests if r["body"]["system"][0]["text"].startswith("You compare"))
+    payload = json.loads(compare["messages"][0]["content"])
+    assert [d["paper_id"] for d in payload["earlier_dossiers"]] == [s4]
+    assert payload["earlier_dossiers"][0]["ideas"][1] == {"index": 1, "what": "HiPPO initialization", "status": "inh", "why": "The matrix remembers the past input."}
+    rewrite_input = json.loads(fake_api.requests[-1]["body"]["messages"][0]["content"])
+    assert all("earlier" not in n for n in rewrite_input["novelties"])
+
+    # The earlier paper lists the later ideas that link to it.
+    later = client.get(f"/api/papers/{s4}").json()["later"]
+    assert [(x["paper_id"], x["idea"], x["earlier_idea"], x["relation"]) for x in later] == [
+        (mamba, "Selection mechanism", "Structured state space layer", "builds_on"),
+        (mamba, "Hardware-aware scan", "Structured state space layer", "same_idea"),
+    ]

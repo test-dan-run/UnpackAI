@@ -313,6 +313,7 @@ table.small td,table.small th{padding:8px 12px}
   .steps3{grid-template-columns:minmax(0,1fr)}
 }
 /* ---------- stored dossiers from the server ---------- */
+.gen-link{display:block;font-size:12.5px;color:var(--muted);margin-top:4px}
 .gen-figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
 
 @media (max-width:1100px){
@@ -1150,8 +1151,8 @@ renderChips(); renderLib();
 // dossiers only. The browser never sees the API key, because the server makes
 // every call to Claude.
 const API_ON = location.protocol==="http:"||location.protocol==="https:";
-const API_STEPS = ["Wait in the queue","Read the source and fill in the dossier","Rewrite the prose with the plain-writing skill","Store the dossier"];
-const API_STEP_AT = {extract:1, plain_writing:2, text_check:3};
+const API_STEPS = ["Wait in the queue","Read the source and fill in the dossier","Compare the new ideas with earlier dossiers","Rewrite the prose with the plain-writing skill","Store the dossier"];
+const API_STEP_AT = {extract:1, compare:2, plain_writing:3, text_check:4};
 let apiReachable=false, apiTracked=null, apiTimer=null;
 async function apiFetch(path, opts){
   const r=await fetch(path, opts);
@@ -1230,6 +1231,21 @@ $("#pipelineResult").addEventListener("click",async e=>{
 const GEN_TYPE = {model:"Model paper", dataset:"Dataset paper", systems:"Systems paper", other:"Other paper"};
 const GEN_EVIDENCE_CLASS = ["ok","warn","std"];
 const GEN_STATUS = ["novel","inh","std"];
+// A link from the compare call names an earlier dossier in the library and copies the text of its idea.
+const genPaperLink = (id,title) => `<a href="#p${+id}-overview">${esc(title)}</a>`;
+function genEarlier(e){
+  if(!e) return "";
+  const verb=e.relation==="same_idea"?"Same idea as":"Builds on";
+  return `<span class="gen-link">${verb} "${esc(e.idea)}" in ${genPaperLink(e.paper_id,e.title)}</span>`;
+}
+function genLater(rows){
+  if(!rows||!rows.length) return "";
+  const item=x=>x.relation==="same_idea"
+    ?`${genPaperLink(x.paper_id,x.title)} reuses "${esc(x.earlier_idea)}" as "${esc(x.idea)}".`
+    :`${genPaperLink(x.paper_id,x.title)} builds on "${esc(x.earlier_idea)}" with "${esc(x.idea)}".`;
+  return `<div class="viz"><div class="viz-head"><div><div class="eyebrow">Later papers in the library</div><h3>Ideas in later papers that reuse or extend the ideas in the paper</h3></div></div>
+    <div class="viz-body"><ul class="gaps">${rows.map(x=>`<li>${item(x)}</li>`).join("")}</ul></div></div>`;
+}
 function genSlug(s,used){ const b=String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"")||"tab"; let id=b, i=2; while(used.has(id)) id=b+(i++); used.add(id); return id; }
 function genLink(p,d){
   const u=d.paper&&d.paper.source_url;
@@ -1253,7 +1269,7 @@ function genBuild(p){
   }
   const first=tabs[0], last=tabs[tabs.length-1], titleOf=k=>{const t=tabs.find(t=>t.key===k);return t?t.title:k};
   const where=w=>{const k=keyOf[w];return k?`<a href="#${docId}-${k}">${esc(titleOf(k))}</a>`:esc(w)};
-  const novRows=rows=>rows.map(n=>{const st=GEN_STATUS.includes(n.status)?n.status:"std";return `<tr><td class="what">${esc(n.what)}</td><td><span class="pill ${st}">${label[st]}</span></td><td>${esc(n.replaces)}</td><td>${esc(n.why)}</td><td class="sec">${where(n.where)}</td></tr>`}).join("");
+  const novRows=rows=>rows.map(n=>{const st=GEN_STATUS.includes(n.status)?n.status:"std";return `<tr><td class="what">${esc(n.what)}${genEarlier(n.earlier)}</td><td><span class="pill ${st}">${label[st]}</span></td><td>${esc(n.replaces)}</td><td>${esc(n.why)}</td><td class="sec">${where(n.where)}</td></tr>`}).join("");
   const novTable=rows=>rows.length?`<div class="table-wrap"><table><thead><tr><th>Idea</th><th>Status</th><th>What it replaces</th><th>Why it works</th><th>Explained in</th></tr></thead><tbody>${novRows(rows)}</tbody></table></div>`:"";
   const claims=rows=>claimsHTML(rows.map(c=>({h:esc(c.heading),p:esc(c.text),c:GEN_EVIDENCE_CLASS.includes(c.evidence_class)?c.evidence_class:"std",ev:esc(c.evidence),w:keyOf[c.where]?esc(titleOf(keyOf[c.where])):esc(c.where)})));
   const figsFor=t=>(d.figures||[]).filter(f=>keyOf[f.tab]===t.key);
@@ -1267,7 +1283,7 @@ function genBuild(p){
 
   const panels=tabs.map((t,i)=>{
     let body;
-    if(i===0) body=head(t,"New ideas in the paper")+novTable(d.novelties||[])+genFigures(figsFor(t));
+    if(i===0) body=head(t,"New ideas in the paper")+novTable(d.novelties||[])+genLater(p.later)+genFigures(figsFor(t));
     else if(t===last) body=head(t,"Claims and how well they are supported")+`<div class="claims">${claims(d.claims||[])}</div>`
       +((d.numbers||[]).length?`<div class="table-wrap"><table class="small"><thead><tr><th>Number</th><th>What it means</th><th>Source in the paper</th></tr></thead><tbody>${d.numbers.map(n=>`<tr><td>${esc(n.value)}</td><td>${esc(n.meaning)}</td><td class="sec">${esc(n.source)}</td></tr>`).join("")}</tbody></table></div>`:"")
       +((d.not_disclosed||[]).length?`<div class="viz"><div class="viz-head"><div><div class="eyebrow">Missing information</div><h3>Information the paper does not give</h3></div></div><div class="viz-body"><ul class="gaps">${d.not_disclosed.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></div>`:"")

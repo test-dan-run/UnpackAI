@@ -96,6 +96,7 @@ def create_app(db_path: str | Path | None = None, unpacker: Unpacker | None = No
             "step": request.app.state.unpacker.last_step.get(paper_id),
             "calls": db.list_calls(paper_id),
             "dossier": db.latest_dossier(paper_id),
+            "later": db.later_links(paper_id),
         }
 
     @app.post("/api/papers/{paper_id}/retry", status_code=202)

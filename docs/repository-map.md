@@ -62,9 +62,9 @@ UnpackAI/
 | --- | --- |
 | `__main__.py` | Starts uvicorn with the safe log setup |
 | `app.py` | Defines the HTTP endpoints, serves the page, and writes the request log |
-| `unpack.py` | Parses sources and makes every call to Claude, with the two prompts |
-| `dossier_schema.py` | Defines the JSON schema of a dossier, and merges the rewritten prose into the draft |
-| `db.py` | Creates the SQLite tables, and reads and writes papers, generations, and dossiers |
+| `unpack.py` | Parses sources and makes every call to Claude, with the extract, compare, and plain-writing prompts |
+| `dossier_schema.py` | Defines the JSON schemas of a dossier and of the compare links, adds the links to a draft, and merges the rewritten prose into the draft |
+| `db.py` | Creates the SQLite tables, reads and writes papers, generations, and dossiers, and finds the links between dossiers |
 | `secret_store.py` | Reads the API key from the Docker secret |
 | `safe_logging.py` | Caps the library loggers, and redacts the key and auth headers in every log handler |
 | `text_check.py` | Checks text for the plain-writing rules that a script can check. The server imports it, and the checks container runs it as a script. |
@@ -86,7 +86,7 @@ UnpackAI/
 | [001](adr/001-single-file-prototype-page.md) | The prototype is one HTML file with no build step |
 | [002](adr/002-plain-writing-for-all-prose.md) | Every paragraph follows the plain-writing skill |
 | [003](adr/003-dossier-tabs-follow-the-paper-type.md) | The paper type sets the tabs of a dossier |
-| [004](adr/004-server-makes-every-claude-call.md) | The server makes every call to Claude, in two calls per paper |
+| [004](adr/004-server-makes-every-claude-call.md) | The server makes every call to Claude, with a plain-writing call after the extract call |
 | [005](adr/005-sqlite-for-generated-items.md) | SQLite stores everything the server generates |
 | [006](adr/006-api-key-from-a-docker-secret.md) | The API key reaches the server as a Docker secret from the host keychain |
 | [007](adr/007-no-secrets-or-headers-in-logs.md) | The logs never contain the key or request headers |
@@ -94,6 +94,7 @@ UnpackAI/
 | [009](adr/009-repository-layout-for-people-and-ai-agents.md) | The repository follows a layout with documentation for people and AI agents |
 | [010](adr/010-add-papers-by-hand.md) | Papers are added by hand, and UnpackAI doesn't collect them on its own |
 | [011](adr/011-page-builds-stored-dossiers-from-json.md) | The page builds each stored dossier from the JSON with one template |
+| [012](adr/012-compare-with-earlier-dossiers-in-a-separate-call.md) | A separate call links the new ideas to the ideas in earlier dossiers, and it returns no prose |
 
 ## Where new work goes
 

@@ -1,9 +1,11 @@
 """The unpack pipeline. Every call to Claude in the app goes through this module.
 
-An unpack makes two calls:
+An unpack makes two or three calls:
 
 1. The extract call reads the source and fills in the dossier fields.
-2. The plain-writing call rewrites every prose field with the plain-writing
+2. The compare call links the new ideas to the ideas in earlier dossiers. The
+   server skips it when the database has no other finished dossier.
+3. The plain-writing call rewrites every prose field with the plain-writing
    skill from .claude/skills/plain-writing/SKILL.md as the system prompt.
 
 Each call is stored in the generations table, and the finished dossier is
@@ -23,7 +25,15 @@ from typing import Any, Callable
 import anthropic
 
 from .db import Database
-from .dossier_schema import DOSSIER_SCHEMA, ShapeMismatch, merge_prose, prose_values
+from .dossier_schema import (
+    COMPARE_SCHEMA,
+    DOSSIER_SCHEMA,
+    ShapeMismatch,
+    apply_links,
+    merge_prose,
+    prose_values,
+    without_links,
+)
 from .safe_logging import REDACTOR
 from .secret_store import read_api_key
 from .text_check import check_lines
@@ -104,6 +114,17 @@ Rules for the fields:
 </unpack_skill>"""
 
 EXTRACT_USER = "Unpack the source above into a dossier. The source location is: {location}"
+
+COMPARE_SYSTEM = """You compare the new ideas in a paper with the ideas in earlier UnpackAI dossiers. UnpackAI marks each idea in a paper as new, inherited from earlier work, or standard practice, and a link to an earlier dossier shows the reader where an idea came from.
+
+You get the ideas of the new paper and a list of earlier dossiers with their ideas, as JSON. Return a link for each new idea that matches an idea in an earlier dossier, with the indexes and the paper id from the input.
+
+Rules for the links:
+- Use "same_idea" when the new paper uses the earlier idea without a change that it presents as its own.
+- Use "builds_on" when the new paper changes or extends the earlier idea, and presents the change as new.
+- Link only to papers published before the new paper. When a date is missing or unclear, link only when the text of the new idea names the earlier work.
+- A shared topic isn't a match. Link two ideas only when they describe the same technique, or when one technique directly changes the other.
+- Give each new idea at most one link, to the closest earlier idea. Return an empty list when no idea matches."""
 
 PLAIN_SYSTEM = """You edit the text of UnpackAI dossiers so it follows the plain-writing skill below.
 
@@ -224,14 +245,41 @@ class Unpacker:
             params["tools"] = tools
         return self._call(paper_id, "extract", **params)
 
+    def compare(self, paper_id: int, draft: dict) -> dict:
+        earlier = {d["paper_id"]: d for d in self.db.earlier_dossiers(exclude=paper_id)}
+        if not earlier or not draft["novelties"]:
+            return draft
+        ideas = lambda novelties, keys: [{"index": i, **{k: n[k] for k in keys}} for i, n in enumerate(novelties)]  # noqa: E731
+        payload = {
+            "new_paper": {
+                "title": draft["paper"]["title"],
+                "published": draft["paper"]["published"],
+                "ideas": ideas(draft["novelties"], ("what", "status", "replaces", "why")),
+            },
+            "earlier_dossiers": [
+                {"paper_id": pid, "title": d["title"], "published": d["published"], "ideas": ideas(d["novelties"], ("what", "status", "why"))}
+                for pid, d in earlier.items()
+            ],
+        }
+        result = self._call(
+            paper_id,
+            "compare",
+            system=[{"type": "text", "text": COMPARE_SYSTEM}],
+            output_config={"effort": "medium", "format": {"type": "json_schema", "schema": COMPARE_SCHEMA}},
+            messages=[{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+        )
+        return apply_links(draft, result["links"], earlier)
+
     def plain_writing(self, paper_id: int, dossier: dict) -> dict:
         system = PLAIN_SYSTEM.format(plain_writing_skill=_read(PLAIN_WRITING_SKILL, "plain-writing"))
+        # The links aren't in DOSSIER_SCHEMA and hold no new prose, so the
+        # rewrite doesn't see them. merge_prose keeps them from the original.
         rewritten = self._call(
             paper_id,
             "plain_writing",
             system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
             output_config={"effort": "medium", "format": {"type": "json_schema", "schema": DOSSIER_SCHEMA}},
-            messages=[{"role": "user", "content": json.dumps(dossier, ensure_ascii=False)}],
+            messages=[{"role": "user", "content": json.dumps(without_links(dossier), ensure_ascii=False)}],
         )
         try:
             return merge_prose(dossier, rewritten)
@@ -246,6 +294,8 @@ class Unpacker:
             draft = self.extract(paper_id, source)
             p = draft["paper"]
             self.db.set_metadata(paper_id, title=p["title"], org=p["org"], published=p["published"], paper_type=p["paper_type"])
+            self.last_step[paper_id] = "compare"
+            draft = self.compare(paper_id, draft)
             self.last_step[paper_id] = "plain_writing"
             final = self.plain_writing(paper_id, draft)
             self.last_step[paper_id] = "text_check"

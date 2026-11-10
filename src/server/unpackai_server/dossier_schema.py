@@ -2,8 +2,14 @@
 
 The fields match what index.html shows for each dossier. The prose fields are
 the ones that go through the plain-writing pass. Every other field, e.g., a
-status, an evidence class, or a number, is kept from the first call, so the
-rewrite can't change it.
+status, an evidence class, or a number, is kept from the earlier calls, so
+the rewrite can't change it.
+
+The compare call returns links between the new ideas and the ideas in earlier
+dossiers. apply_links() adds each link to its novelty as an "earlier" field,
+which isn't in DOSSIER_SCHEMA because the extract call doesn't fill it in. A
+link holds no new prose. It names the earlier paper and copies the earlier
+idea's text, which already went through the plain-writing pass.
 """
 from __future__ import annotations
 
@@ -98,6 +104,23 @@ DOSSIER_SCHEMA: dict[str, Any] = _obj(
     }
 )
 
+RELATIONS = ["same_idea", "builds_on"]
+
+COMPARE_SCHEMA: dict[str, Any] = _obj(
+    {
+        "links": _arr(
+            _obj(
+                {
+                    "novelty": {"type": "integer"},
+                    "earlier_paper": {"type": "integer"},
+                    "earlier_novelty": {"type": "integer"},
+                    "relation": {"type": "string", "enum": RELATIONS},
+                }
+            )
+        )
+    }
+)
+
 # Paths to the prose fields. "[]" means every item of a list.
 PROSE_FIELDS = [
     "thesis",
@@ -158,6 +181,49 @@ def merge_prose(original: dict, rewritten: dict) -> dict:
     # A highlight is useless if it isn't part of the thesis, because the page
     # marks it by finding it in the thesis text.
     out["highlights"] = [h for h in out["highlights"] if h and h in out["thesis"]]
+    return out
+
+
+def apply_links(dossier: dict, links: list[dict], earlier: dict[int, dict]) -> dict:
+    """Add the links from the compare call to a copy of the dossier.
+
+    earlier maps a paper id to {"title", "published", "novelties"} for each
+    earlier dossier. A link with an index or a paper id that isn't in the input
+    is dropped, and each novelty keeps only its first link. A novelty that is
+    the same idea as an earlier one is marked as inherited.
+    """
+    import copy
+
+    out = copy.deepcopy(dossier)
+    novelties = out["novelties"]
+    for n in novelties:
+        n["earlier"] = None
+    for link in links:
+        i, j = link.get("novelty"), link.get("earlier_novelty")
+        e = earlier.get(link.get("earlier_paper"))
+        relation = link.get("relation")
+        if relation not in RELATIONS or e is None:
+            continue
+        if not (isinstance(i, int) and 0 <= i < len(novelties)) or novelties[i]["earlier"] is not None:
+            continue
+        if not (isinstance(j, int) and 0 <= j < len(e["novelties"])):
+            continue
+        novelties[i]["earlier"] = {
+            "paper_id": link["earlier_paper"],
+            "title": e["title"],
+            "published": e["published"],
+            "idea": e["novelties"][j]["what"],
+            "relation": relation,
+        }
+        if relation == "same_idea" and novelties[i]["status"] == "novel":
+            novelties[i]["status"] = "inh"
+    return out
+
+
+def without_links(dossier: dict) -> dict:
+    """Return a copy of the dossier without the links, in the shape of DOSSIER_SCHEMA."""
+    out = dict(dossier)
+    out["novelties"] = [{k: v for k, v in n.items() if k != "earlier"} for n in dossier["novelties"]]
     return out
 
 

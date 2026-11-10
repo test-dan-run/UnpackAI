@@ -1,6 +1,6 @@
 # ADR 004: Make every call to Claude in the server, in two calls per paper
 
-Status: Accepted
+Status: Accepted, and ADR 012 adds a compare call between the two calls
 
 Date: 2026-11-09
 

@@ -1,6 +1,6 @@
 # UnpackAI
 
-UnpackAI is a web app that explains new AI research papers and lab blog posts. For each paper, it shows the architecture changes, the data preparation, and the training process, and it marks which ideas are new in the paper and which ideas come from earlier work. Interactive figures show how the new ideas work.
+UnpackAI is a web app that explains new AI research papers and lab blog posts. For each paper, it shows the architecture changes, the data preparation, and the training process, and it marks which ideas are new in the paper and which ideas come from earlier work. When an idea comes from a paper that is already in the library, the dossier links to it. Interactive figures show how the new ideas work.
 
 ## Purpose
 
@@ -20,7 +20,7 @@ The details are in [docs/architecture.md](docs/architecture.md).
 | Component | Path | What it does |
 | --- | --- | --- |
 | Page | `src/web/index.html` | Sends links to the server, and shows the library, the stored dossiers, and three sample dossiers |
-| Server | `src/server/unpackai_server/` | Unpacks a paper with two calls to Claude and stores the results |
+| Server | `src/server/unpackai_server/` | Unpacks a paper with calls to Claude, links its ideas to earlier dossiers, and stores the results |
 | Skills | `.claude/skills/` | The unpack steps and the plain-writing rules, which Claude Code and the server both use |
 | Containers | `compose.yaml`, `docker/` | The `app`, `test`, and `checks` containers |
 

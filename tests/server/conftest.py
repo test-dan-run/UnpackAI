@@ -74,6 +74,8 @@ class FakeAPI:
         self.requests = []
         self.extract_stop = "end_turn"
         self.rewrite_fn = rewrite
+        self.draft = DRAFT
+        self.links = []
 
     def handler(self, request: httpx2.Request) -> httpx2.Response:
         body = json.loads(request.content)
@@ -82,8 +84,10 @@ class FakeAPI:
         if "<plain_writing_skill>" in system:
             draft = json.loads(body["messages"][0]["content"])
             text, stop = json.dumps(self.rewrite_fn(draft)), "end_turn"
+        elif system.startswith("You compare the new ideas"):
+            text, stop = json.dumps({"links": self.links}), "end_turn"
         else:
-            text, stop = json.dumps(DRAFT), self.extract_stop
+            text, stop = json.dumps(self.draft), self.extract_stop
         return httpx2.Response(200, headers={"content-type": "text/event-stream", "request-id": "req_test"}, text=sse(text, stop))
 
 

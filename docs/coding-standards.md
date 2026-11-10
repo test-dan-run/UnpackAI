@@ -34,6 +34,7 @@ The text check in `src/server/unpackai_server/text_check.py` finds the problems 
 
 - Make every call to Claude in `unpack.py`, through `Unpacker._call()`. The method stores each call in the `generations` table, including failed calls.
 - Use the model `claude-opus-5-5` unless `UNPACKAI_MODEL` names another one. Use streaming with adaptive thinking, structured output with the dossier schema, and `fallbacks: "default"`.
+- Every prose field goes through the plain-writing call. A new call that returns prose must run before the plain-writing call, and its fields must be in `PROSE_FIELDS`. A call that returns only links, statuses, or numbers can run at any step.
 - Check `stop_reason` before you read the content, and treat `refusal` and `max_tokens` as failures.
 - Read the API key only with `secret_store.read_api_key()`. Don't read it from an environment variable, any other file, or a request header.
 - Log only the method, the path, the status code, and the time taken for a request. Don't log headers, query strings, or bodies, and pass every error message through `describe_error()` before you store or log it.

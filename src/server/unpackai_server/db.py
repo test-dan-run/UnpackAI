@@ -171,6 +171,43 @@ class Database:
             )
             return latest + 1
 
+    def earlier_dossiers(self, exclude: int) -> list[dict[str, Any]]:
+        """Return the title, date, and ideas of the latest dossier of every finished paper, except one."""
+        with self.tx() as c:
+            rows = c.execute(
+                "SELECT d.paper_id, d.content FROM dossiers d JOIN papers p ON p.id = d.paper_id "
+                "WHERE p.status = 'done' AND d.paper_id != ? "
+                "AND d.version = (SELECT MAX(version) FROM dossiers WHERE paper_id = d.paper_id) ORDER BY d.paper_id",
+                (exclude,),
+            ).fetchall()
+        out = []
+        for r in rows:
+            content = json.loads(r["content"])
+            out.append({
+                "paper_id": r["paper_id"],
+                "title": content["paper"]["title"],
+                "published": content["paper"]["published"],
+                "novelties": content["novelties"],
+            })
+        return out
+
+    def later_links(self, paper_id: int) -> list[dict[str, Any]]:
+        """Return the ideas in other finished dossiers that link to an idea in this paper."""
+        out = []
+        for d in self.earlier_dossiers(exclude=paper_id):
+            for n in d["novelties"]:
+                link = n.get("earlier")
+                if link and link["paper_id"] == paper_id:
+                    out.append({
+                        "paper_id": d["paper_id"],
+                        "title": d["title"],
+                        "published": d["published"],
+                        "idea": n["what"],
+                        "earlier_idea": link["idea"],
+                        "relation": link["relation"],
+                    })
+        return out
+
     def latest_dossier(self, paper_id: int) -> dict[str, Any] | None:
         with self.tx() as c:
             row = c.execute(
