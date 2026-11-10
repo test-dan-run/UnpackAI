@@ -19,7 +19,7 @@ The details are in [docs/architecture.md](docs/architecture.md).
 
 | Component | Path | What it does |
 | --- | --- | --- |
-| Page | `src/web/index.html` | Sends links to the server, and shows the library, the stored dossiers with their text check results, and three sample dossiers |
+| Page | `src/web/index.html` | Sends links to the server, and shows the library, the stored dossiers, and three sample dossiers |
 | Server | `src/server/unpackai_server/` | Unpacks a paper with two calls to Claude and stores the results |
 | Skills | `.claude/skills/` | The unpack steps and the plain-writing rules, which Claude Code and the server both use |
 | Containers | `compose.yaml`, `docker/` | The `app`, `test`, and `checks` containers |

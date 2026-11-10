@@ -314,8 +314,6 @@ table.small td,table.small th{padding:8px 12px}
 }
 /* ---------- stored dossiers from the server ---------- */
 .gen-figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
-.table-wrap td.field{white-space:nowrap}
-.table-wrap td.text{overflow-wrap:anywhere;min-width:220px}
 
 @media (max-width:1100px){
   .specs{grid-template-columns:repeat(3,minmax(0,1fr));width:100%}
@@ -1152,7 +1150,7 @@ renderChips(); renderLib();
 // dossiers only. The browser never sees the API key, because the server makes
 // every call to Claude.
 const API_ON = location.protocol==="http:"||location.protocol==="https:";
-const API_STEPS = ["Wait in the queue","Read the source and fill in the dossier","Rewrite the prose with the plain-writing skill","Run the text check and store the dossier"];
+const API_STEPS = ["Wait in the queue","Read the source and fill in the dossier","Rewrite the prose with the plain-writing skill","Store the dossier"];
 const API_STEP_AT = {extract:1, plain_writing:2, text_check:3};
 let apiReachable=false, apiTracked=null, apiTimer=null;
 async function apiFetch(path, opts){
@@ -1193,8 +1191,7 @@ async function apiShowProgress(id){
   const steps=API_STEPS.map((s,i)=>`<li class="${cls(i)}">${s}</li>`).join("");
   let result;
   if(p.status==="done"){
-    const n=p.dossier?p.dossier.text_problems.length:0;
-    result=`The dossier for ${name} is ready, and the text check found ${n} ${n===1?"problem":"problems"}. <a href="#p${p.id}-overview">Open the dossier</a>`;
+    result=`The dossier for ${name} is ready. <a href="#p${p.id}-overview">Open the dossier</a>`;
     genForget("p"+p.id);
   } else if(p.status==="failed"){
     result=`The unpack of ${name} failed. ${esc(p.error)}`+(p.source_kind==="text"?"":` <button class="btn small" type="button" data-retry="${p.id}">Try again</button>`);
@@ -1233,10 +1230,6 @@ $("#pipelineResult").addEventListener("click",async e=>{
 const GEN_TYPE = {model:"Model paper", dataset:"Dataset paper", systems:"Systems paper", other:"Other paper"};
 const GEN_EVIDENCE_CLASS = ["ok","warn","std"];
 const GEN_STATUS = ["novel","inh","std"];
-const GEN_FIELD = {"thesis":"Thesis", "highlights[]":"Highlight", "specs[].label":"Number label", "tabs[].title":"Tab title", "tabs[].lede":"Tab introduction",
-  "novelties[].what":"New idea", "novelties[].replaces":"What the idea replaces", "novelties[].why":"Why the idea works", "claims[].heading":"Claim heading",
-  "claims[].text":"Claim", "figures[].title":"Figure title", "figures[].what_to_notice":"What to notice", "numbers[].meaning":"Meaning of a number", "not_disclosed[]":"Not disclosed"};
-const GEN_STEP = {extract:"Read the source", plain_writing:"Rewrite the prose"};
 function genSlug(s,used){ const b=String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"")||"tab"; let id=b, i=2; while(used.has(id)) id=b+(i++); used.add(id); return id; }
 function genLink(p,d){
   const u=d.paper&&d.paper.source_url;
@@ -1244,22 +1237,13 @@ function genLink(p,d){
   if(p.source_kind==="arxiv") return "https://arxiv.org/abs/"+p.source.slice(6);
   return /^https?:\/\//i.test(p.source)?p.source:null;
 }
-function genFieldText(d,field){
-  const [path,n]=field.split("#"); let v=d;
-  for(const part of path.split(".")) v=part.endsWith("[]")?(v&&v[part.slice(0,-2)]||[])[+n]:(v&&v[part]);
-  return typeof v==="string"?v:"";
-}
-function genFieldLabel(field){
-  const [path,n]=field.split("#"), name=GEN_FIELD[path]||path;
-  return path.includes("[]")?`${name} ${+n+1}`:name;
-}
 function genFigures(figs){
   if(!figs.length) return "";
   return `<div class="gen-figs">${figs.map(f=>`<div class="viz"><div class="viz-head"><div><div class="eyebrow">Suggested figure, not built yet</div><h3>${esc(f.title)}</h3></div></div>
     <div class="viz-body"><p class="notice"><b>What to notice:</b> ${esc(f.what_to_notice)}</p>${f.uses_made_up_values?`<p class="proto-note">The figure needs example values that the paper doesn't give.</p>`:""}</div></div>`).join("")}</div>`;
 }
 function genBuild(p){
-  const d=p.dossier.content, problems=p.dossier.text_problems||[], docId="p"+p.id;
+  const d=p.dossier.content, docId="p"+p.id;
   const used=new Set(), keyOf={};
   let tabs=(d.tabs||[]).map(t=>({...t, key:genSlug(t.id,used)}));
   tabs.forEach(t=>{ if(!(t.id in keyOf)) keyOf[t.id]=t.key; });
@@ -1267,7 +1251,6 @@ function genBuild(p){
     if(!tabs.length) tabs.push({id:"overview",title:"Overview",lede:"",key:genSlug("overview",used)});
     tabs.push({id:"evidence",title:"Evidence",lede:"",key:genSlug("evidence",used)});
   }
-  const checkKey=genSlug("textcheck",used);
   const first=tabs[0], last=tabs[tabs.length-1], titleOf=k=>{const t=tabs.find(t=>t.key===k);return t?t.title:k};
   const where=w=>{const k=keyOf[w];return k?`<a href="#${docId}-${k}">${esc(titleOf(k))}</a>`:esc(w)};
   const novRows=rows=>rows.map(n=>{const st=GEN_STATUS.includes(n.status)?n.status:"std";return `<tr><td class="what">${esc(n.what)}</td><td><span class="pill ${st}">${label[st]}</span></td><td>${esc(n.replaces)}</td><td>${esc(n.why)}</td><td class="sec">${where(n.where)}</td></tr>`}).join("");
@@ -1281,7 +1264,6 @@ function genBuild(p){
   const link=genLink(p,d), src=p.source_kind==="arxiv"?"arXiv "+esc(p.source.slice(6)):esc(API_KIND[p.source_kind]||"Source");
   const eyebrow=[GEN_TYPE[d.paper.paper_type]||"Paper", link?`<a href="${esc(link)}" target="_blank" rel="noopener">${src}</a>`:src, esc(d.paper.published), esc(d.paper.org)].filter(Boolean).join(", ");
   const nNovel=(d.novelties||[]).filter(n=>n.status==="novel").length;
-  const nProb=problems.length;
 
   const panels=tabs.map((t,i)=>{
     let body;
@@ -1294,15 +1276,6 @@ function genBuild(p){
     return `<section class="panel" data-panel="${t.key}"${i?" hidden":""}>${body}</section>`;
   }).join("");
 
-  const probRows=problems.map(x=>`<tr><td class="field">${esc(genFieldLabel(x.field))}</td><td>${esc(x.problem)}</td><td class="text">${esc(genFieldText(d,x.field))}</td></tr>`).join("");
-  const calls=(p.calls||[]).map(c=>`<tr><td>${esc(GEN_STEP[c.step]||c.step)}</td><td>${esc(c.model)}</td><td>${c.input_tokens==null?"":fmt(c.input_tokens)}</td><td>${c.output_tokens==null?"":fmt(c.output_tokens)}</td><td>${c.duration_ms==null?"":(c.duration_ms/1000).toFixed(1)+" s"}</td><td>${c.error?esc(c.error):"Finished"}</td></tr>`).join("");
-  const checkPanel=`<section class="panel" data-panel="${checkKey}" hidden>
-    <div><div class="section-title"><h2>Text check</h2><span class="eyebrow">${nProb} ${nProb===1?"problem":"problems"}</span></div>
-    <p class="lede" style="margin-top:8px">After the plain-writing call, the server checks every prose field for the problems that a script can find, e.g., dashes, curly quotes, overused words, and sentences that start with a demonstrative pronoun. Most plain-writing rules need a person or a model to judge them, so read the text against the skill as well.</p></div>
-    ${nProb?`<div class="table-wrap"><table class="small"><thead><tr><th>Field</th><th>Problem</th><th>Text</th></tr></thead><tbody>${probRows}</tbody></table></div>`:`<p class="lede">The text check found no problems in the prose fields.</p>`}
-    ${calls?`<div class="viz"><div class="viz-head"><div><div class="eyebrow">Calls to Claude</div><h3>The calls that made the dossier, and the model that answered each one</h3></div></div><div class="viz-body"><div class="table-wrap"><table class="small"><thead><tr><th>Step</th><th>Model</th><th>Input tokens</th><th>Output tokens</th><th>Time</th><th>Result</th></tr></thead><tbody>${calls}</tbody></table></div></div></div>`:""}
-  </section>`;
-
   const el=document.createElement("div");
   el.className="doc"; el.dataset.doc=docId; el.hidden=true;
   el.innerHTML=`<div class="paper-head">
@@ -1310,14 +1283,13 @@ function genBuild(p){
       <h1>${esc(d.paper.title)}</h1>
       <p class="thesis">${thesis}</p>
       ${(d.specs||[]).length?`<div class="specs">${d.specs.map(x=>`<div class="spec"><b>${esc(x.value)}</b><span>${esc(x.label)}</span></div>`).join("")}</div>`:""}
-      <p class="ptype-note"><span class="ptype">${GEN_TYPE[d.paper.paper_type]||"Paper"}</span> The server unpacked the source, and the dossier is version ${+p.dossier.version}. ${nProb?`<a href="#${docId}-${checkKey}">The text check found ${nProb} ${nProb===1?"problem":"problems"}</a>`:"The text check found no problems."}</p>
+      <p class="ptype-note"><span class="ptype">${GEN_TYPE[d.paper.paper_type]||"Paper"}</span> The server unpacked the source and rewrote the text with the plain-writing skill, and the dossier is version ${+p.dossier.version}.</p>
       <div class="legend"><span><i class="sw novel"></i>New in this paper</span><span><i class="sw inh"></i>Inherited from earlier work</span><span><i class="sw std"></i>Standard practice</span></div>
     </div>
     <nav class="tabs" role="tablist" aria-label="Dossier sections">
       ${tabs.map((t,i)=>`<a class="tab" role="tab" href="#${docId}-${t.key}" data-tab="${t.key}">${esc(t.title)}${i===0&&nNovel?` <span class="count">${nNovel}</span>`:""}</a>`).join("")}
-      <a class="tab" role="tab" href="#${docId}-${checkKey}" data-tab="${checkKey}">Text check${nProb?` <span class="count">${nProb}</span>`:""}</a>
-    </nav>${panels}${checkPanel}`;
-  return {el, tabs:[...tabs.map(t=>t.key), checkKey]};
+    </nav>${panels}`;
+  return {el, tabs:tabs.map(t=>t.key)};
 }
 async function genLoad(docId){
   const p=await apiFetch(`/api/papers/${docId.slice(1)}`);

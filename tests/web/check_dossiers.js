@@ -74,10 +74,6 @@ async function checkServerViews(page, v, label) {
   const injected = await page.evaluate(() => !!document.querySelector('.doc[data-doc="p1"] img') || !!window.__xss);
   expect(h1.includes('<img') && !injected, 'the stored dossier doesn\'t escape its title');
 
-  // The text check tab lists each problem with the text of its field.
-  const rows = await page.$$eval('.doc[data-doc="p1"] [data-panel="textcheck"] tbody tr', trs => trs.map(t => t.textContent));
-  expect(rows.some(r => r.startsWith('Claim 2') && r.includes('robust') && r.includes('twice its size')), 'the text check tab doesn\'t list the problem in claim 2');
-
   // Opening a paper that is still running shows its step.
   await page.click('#libList >> text=Transformers are SSMs');
   await page.waitForTimeout(200);

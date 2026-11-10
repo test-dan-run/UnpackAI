@@ -6,7 +6,7 @@ Date: 2026-11-10
 
 ## Context
 
-The server stores each dossier as JSON, and before the change the page showed only the sample dossiers, which Claude Code built by hand. The page has to show stored dossiers and the results of the text check, with no build step (ADR 001). The text in a dossier comes from a paper or a web page, so it can contain HTML.
+The server stores each dossier as JSON, and before the change the page showed only the sample dossiers, which Claude Code built by hand. The page has to show stored dossiers with no build step (ADR 001). The text in a dossier comes from a paper or a web page, so it can contain HTML.
 
 ## Options
 
@@ -16,7 +16,7 @@ The server stores each dossier as JSON, and before the change the page showed on
 
 ## Decision
 
-UnpackAI uses option 2. When you open a stored dossier, the page loads it from `GET /api/papers/{id}`, and `genBuild()` turns the JSON into the same paper head, tabs, and panels that the sample dossiers use. The page escapes every value with `esc()`. It also adds a Text check tab, which lists the problems that the server's text check found and the calls to Claude.
+UnpackAI uses option 2. When you open a stored dossier, the page loads it from `GET /api/papers/{id}`, and `genBuild()` turns the JSON into the same paper head, tabs, and panels that the sample dossiers use. The page escapes every value with `esc()`.
 
 ## Consequences
 

@@ -61,17 +61,16 @@ The systems dossier has a roofline estimate that shows why standard attention is
 
 ### Unpack progress
 
-While an unpack runs, the page asks the server for the paper every three seconds, and the command bar marks the step that is running. The steps are the queue, the extract call, the plain-writing call, and the text check. When an unpack fails, the bar marks the step that failed, and it shows the error with a Try again button. You can also open the progress of a paper from the library.
+While an unpack runs, the page asks the server for the paper every three seconds, and the command bar marks the step that is running. The steps are the queue, the extract call, the plain-writing call, and storing the dossier. When an unpack fails, the bar marks the step that failed, and it shows the error with a Try again button. You can also open the progress of a paper from the library.
 
 ### Stored dossiers
 
-The page builds a stored dossier from the JSON that the server returns, when you open the dossier from the library. ADR 011 records the choice. The dossier has the tabs from the extract call, and it ends with a Text check tab.
+The page builds a stored dossier from the JSON that the server returns, when you open the dossier from the library. ADR 011 records the choice. The dossier has the tabs from the extract call, and the text in every tab comes from the plain-writing call.
 
-- The first tab has the table of new ideas. The last tab before Text check has the claims, the numbers with their sources, and the information that the paper doesn't give.
+- The first tab has the table of new ideas. The last tab has the claims, the numbers with their sources, and the information that the paper doesn't give.
 - Each tab in between has its introduction, the new ideas that the tab explains, and the figures that the extract call suggests. The page doesn't build interactive figures for stored dossiers yet, so each suggested figure shows its title and its "What to notice" note.
-- The Text check tab lists each problem that the server's text check found, with the name of the field and its text. It also lists the calls to Claude, with the model that answered each call and the token counts.
 
-The paper head says how many problems the text check found, with a link to the Text check tab. The page escapes every value from the server before it adds the value to the page, because the text comes from a paper or a web page.
+The page escapes every value from the server before it adds the value to the page, because the text comes from a paper or a web page.
 
 ## Server
 
@@ -80,7 +79,7 @@ The server in `src/server/unpackai_server/` takes a source, e.g., an arXiv link,
 1. The extract call reads the source and fills in the dossier fields. The system prompt includes the unpack skill from `.claude/skills/unpack/SKILL.md`, so the server follows the same rules as Claude Code. An arXiv paper or PDF goes to Claude as a document URL, and a blog post is read with the web fetch tool.
 2. The plain-writing call rewrites every prose field, with the plain-writing skill from `.claude/skills/plain-writing/SKILL.md` as the system prompt. The server keeps only the rewritten prose. Statuses, evidence labels, and numbers come from the first call, so the rewrite can't change them.
 
-After the second call, the server runs the text check from `text_check.py` on every prose field, and it stores the problems it finds with the dossier. If either skill file is missing, the unpack stops with an error.
+The server stores a dossier only after the plain-writing call succeeds, so every stored dossier has gone through the skill. After the second call, the server runs the text check from `text_check.py` on every prose field, and it stores the problems it finds with the dossier for review in the API. If either skill file is missing, the unpack stops with an error.
 
 Both calls use `claude-opus-5-5` with adaptive thinking and streaming. They also use the `fallbacks: "default"` setting, so if Claude declines a request, the API tries Anthropic's recommended fallback model. The `generations` table records which model answered. You can set a different model with the `UNPACKAI_MODEL` variable when you run `scripts/compose-up.sh`.
 
@@ -150,7 +149,7 @@ The `checks` container first runs the text check on the page and on the Markdown
 1. First, the browser check opens the page as a file.
 2. Second, it opens the page from the fake server in `tests/web/fake_server.js`. The fake server answers the API requests with a stored dossier, a running unpack, and a failed unpack, so the check needs no network and no key.
 
-The browser check reports script errors, tabs that show the wrong panel, and pages that scroll sideways on a phone. With the fake server, it also checks the library, the progress in the command bar, the Try again button, the Text check tab, and the escaping of HTML from the server. It saves a screenshot of every tab when the repository root has a `shots` folder that anyone can write to, e.g., after `mkdir -p shots && chmod 777 shots`.
+The browser check reports script errors, tabs that show the wrong panel, and pages that scroll sideways on a phone. With the fake server, it also checks the library, the progress in the command bar, the Try again button, and the escaping of HTML from the server. It saves a screenshot of every tab when the repository root has a `shots` folder that anyone can write to, e.g., after `mkdir -p shots && chmod 777 shots`.
 
 On Windows, run the scripts in WSL or Git Bash. When neither `security` nor `secret-tool` is installed, the scripts use the Python `keyring` package on the host.
 
@@ -166,5 +165,5 @@ The full app would process each new paper in a fixed order, and the server alrea
 | Read the sections, tables, figures, and equations | Built in part. Claude reads a PDF from its URL and a blog post with web fetch, and the server doesn't use the LaTeX source from arXiv yet. |
 | Fill in the dossier fields, e.g., the new ideas, the claims, and the numbers with their sources | Built. The first call returns the fields as JSON. |
 | Compare the paper with earlier dossiers, so reused ideas are marked as inherited | Planned. The first call marks an idea as inherited only when the paper cites earlier work for it. |
-| Rewrite every paragraph with the plain-writing skill | Built. The second call rewrites the prose, the text check runs on the result, and the Text check tab shows the problems. |
+| Rewrite every paragraph with the plain-writing skill | Built. The second call rewrites the prose, and the server stores a dossier only after the rewrite succeeds. |
 | Show the dossier in the page, with interactive figures filled in from the paper's numbers | Built in part. The page shows each stored dossier, and it lists the suggested figures without building them. |
