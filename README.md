@@ -49,6 +49,8 @@ scripts/compose-up.sh
 
 Third, open http://127.0.0.1:8000 in a browser. To unpack a paper, paste an arXiv link, a PDF URL, or a blog URL in the bar at the top, and click Unpack. The bar shows each step while the server works, and the library shows the paper when its dossier is ready.
 
+To share dossiers with another person, click Export the library in the library, or Export the dossier on one dossier, and send the file. The other person clicks Import a file in their own library, and the server adds the dossiers without any call to Claude.
+
 To run the server tests and the page checks, use the commands below. The `--build` option copies your latest changes into the images first.
 
 ```bash

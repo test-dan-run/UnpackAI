@@ -71,6 +71,7 @@ p{margin:0}
 .btn:hover{border-color:var(--blue)}
 .btn.primary{background:var(--blue);border-color:var(--blue);color:var(--panel)}
 .btn.small{padding:5px 10px;font-size:13px}
+a.btn{text-decoration:none;color:var(--ink)}
 .btn[aria-pressed="true"]{background:var(--blue-soft);border-color:var(--blue);color:var(--ink)}
 .proto-note{font-size:12.5px;color:var(--muted)}
 
@@ -314,6 +315,8 @@ table.small td,table.small th{padding:8px 12px}
 }
 /* ---------- stored dossiers from the server ---------- */
 .gen-link{display:block;font-size:12.5px;color:var(--muted);margin-top:4px}
+.share-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.gen-share{margin-top:12px}
 .gen-figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
 
 @media (max-width:1100px){
@@ -329,7 +332,7 @@ table.small td,table.small th{padding:8px 12px}
   .lib-list{flex-direction:row;overflow-x:auto;gap:8px;padding-bottom:6px}
   .lib-list li{flex:0 0 240px}
   .lib-item{background:var(--panel);height:100%}
-  .feeds{display:none}
+  .feeds:not(.share){display:none}
   .dossier{padding-left:max(16px,env(safe-area-inset-left,0px))}
 }
 @media (max-width:620px){
@@ -375,6 +378,15 @@ table.small td,table.small th{padding:8px 12px}
       <span class="eyebrow">How to add a paper</span>
       <span>Paste an arXiv link, a PDF URL, or a blog URL in the bar at the top, and the server unpacks it.</span>
       <span>UnpackAI doesn't collect new papers on its own, so you add each paper by hand.</span>
+    </div>
+    <div class="feeds share" id="apiShare" hidden>
+      <span class="eyebrow">Share dossiers</span>
+      <span>You can save the dossiers that the server unpacked in a file, and another person can import the file into their own library.</span>
+      <div class="share-btns">
+        <a class="btn small" href="/api/export" download>Export the library</a>
+        <button class="btn small" type="button" id="importButton">Import a file</button>
+        <input id="importFile" type="file" accept=".json,application/json" hidden>
+      </div>
     </div>
   </aside>
 
@@ -1165,6 +1177,7 @@ async function apiHealth(){
   if(!API_ON){ note.textContent="Sample dossiers only, because the page is open as a file"; return; }
   try{
     const h=await apiFetch("/api/health"); apiReachable=true;
+    $("#apiShare").hidden=false;
     note.textContent=h.api_key_configured?"Connected to the server":"The server has no API key, so start it with scripts/compose-up.sh";
   }catch(e){ note.textContent="The page can't reach the server, so only the sample dossiers work"; }
 }
@@ -1223,6 +1236,26 @@ $("#pipelineResult").addEventListener("click",async e=>{
   catch(err){ apiPipe("",esc(err.message)); }
 });
 
+// An export file holds finished dossiers from another library. The server
+// checks every dossier in the file before it stores any of them.
+const API_MAX_IMPORT = 20*1024*1024;
+const apiCount = (n,word) => `${n} ${word}${n===1?"":"s"}`;
+$("#importButton").addEventListener("click",()=>$("#importFile").click());
+$("#importFile").addEventListener("change",async e=>{
+  const file=e.target.files[0]; e.target.value="";
+  if(!file) return;
+  if(file.size>API_MAX_IMPORT){ apiPipe("","The file is larger than 20 MB, so the server can't import it."); return; }
+  try{
+    const r=await apiFetch("/api/import",{method:"POST",headers:{"Content-Type":"application/json"},body:await file.text()});
+    let msg=r.added.length?`Imported ${apiCount(r.added.length,"paper")} from ${esc(file.name)}.`:`No new papers were imported from ${esc(file.name)}.`;
+    if(r.skipped.length) msg+=` Skipped ${apiCount(r.skipped.length,"paper")} that ${r.skipped.length===1?"was":"were"} already in the library.`;
+    if(r.added.length) msg+=` <a href="#p${+r.added[0].paper_id}-overview">Open the first dossier</a>`;
+    apiPipe("",msg);
+    r.added.forEach(a=>genForget("p"+a.paper_id));
+    await apiRefresh();
+  }catch(err){ apiPipe("",esc(err.message)); }
+});
+
 /* ---------------- stored dossiers ---------------- */
 // A dossier that the server generated gets a doc with the id "p<paper id>",
 // which the page builds from the stored JSON when you open it. The page
@@ -1232,7 +1265,8 @@ const GEN_TYPE = {model:"Model paper", dataset:"Dataset paper", systems:"Systems
 const GEN_EVIDENCE_CLASS = ["ok","warn","std"];
 const GEN_STATUS = ["novel","inh","std"];
 // A link from the compare call names an earlier dossier in the library and copies the text of its idea.
-const genPaperLink = (id,title) => `<a href="#p${+id}-overview">${esc(title)}</a>`;
+// A dossier from an export file can link to a paper that isn't in the library, and then the id is null.
+const genPaperLink = (id,title) => id==null?esc(title):`<a href="#p${+id}-overview">${esc(title)}</a>`;
 function genEarlier(e){
   if(!e) return "";
   const verb=e.relation==="same_idea"?"Same idea as":"Builds on";
@@ -1299,8 +1333,11 @@ function genBuild(p){
       <h1>${esc(d.paper.title)}</h1>
       <p class="thesis">${thesis}</p>
       ${(d.specs||[]).length?`<div class="specs">${d.specs.map(x=>`<div class="spec"><b>${esc(x.value)}</b><span>${esc(x.label)}</span></div>`).join("")}</div>`:""}
-      <p class="ptype-note"><span class="ptype">${GEN_TYPE[d.paper.paper_type]||"Paper"}</span> The server unpacked the source and rewrote the text with the plain-writing skill, and the dossier is version ${+p.dossier.version}.</p>
+      <p class="ptype-note"><span class="ptype">${GEN_TYPE[d.paper.paper_type]||"Paper"}</span> ${p.dossier.origin==="import"
+        ?`The dossier came from an export file that another library made, and it is version ${+p.dossier.version} in this library.`
+        :`The server unpacked the source and rewrote the text with the plain-writing skill, and the dossier is version ${+p.dossier.version}.`}</p>
       <div class="legend"><span><i class="sw novel"></i>New in this paper</span><span><i class="sw inh"></i>Inherited from earlier work</span><span><i class="sw std"></i>Standard practice</span></div>
+      <p class="gen-share"><a class="btn small" href="/api/papers/${+p.id}/export" download>Export the dossier</a></p>
     </div>
     <nav class="tabs" role="tablist" aria-label="Dossier sections">
       ${tabs.map((t,i)=>`<a class="tab" role="tab" href="#${docId}-${t.key}" data-tab="${t.key}">${esc(t.title)}${i===0&&nNovel?` <span class="count">${nNovel}</span>`:""}</a>`).join("")}

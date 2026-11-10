@@ -4,7 +4,7 @@ import logging
 import pytest
 from fastapi.testclient import TestClient
 
-from conftest import DRAFT, FAKE_KEY
+from conftest import DRAFT, FAKE_KEY, S4_DRAFT
 from unpackai_server.app import create_app
 from unpackai_server.db import Database
 from unpackai_server.safe_logging import REDACTOR
@@ -212,16 +212,6 @@ def test_retry_starts_a_failed_unpack_again(client, fake_api):
     tid = client.post("/api/unpack", json={"text": "Full text of a paper"}).json()["paper_id"]
     r = client.post(f"/api/papers/{tid}/retry")
     assert r.status_code == 400 and "send the text again" in r.json()["detail"]
-
-
-S4_DRAFT = {
-    **DRAFT,
-    "paper": {**DRAFT["paper"], "title": "Efficiently Modeling Long Sequences with Structured State Spaces", "published": "Nov 2021", "source_url": "https://arxiv.org/pdf/2111.00396"},
-    "novelties": [
-        {"what": "Structured state space layer", "status": "novel", "replaces": "Attention", "why": "The layer has a fast convolution form.", "where": "overview"},
-        {"what": "HiPPO initialization", "status": "inh", "replaces": "Random initialization", "why": "The matrix remembers the past input.", "where": "overview"},
-    ],
-}
 
 
 def test_new_ideas_are_linked_to_earlier_dossiers(client, fake_api):

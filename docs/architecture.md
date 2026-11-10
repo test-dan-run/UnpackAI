@@ -72,7 +72,13 @@ The page builds a stored dossier from the JSON that the server returns, when you
 - The last tab has the claims, the numbers with their sources, and the information that the paper doesn't give.
 - Each tab in between has its introduction, the new ideas that the tab explains, and the figures that the extract call suggests. The page doesn't build interactive figures for stored dossiers yet, so each suggested figure shows its title and its "What to notice" note.
 
-The page escapes every value from the server before it adds the value to the page, because the text comes from a paper or a web page.
+The page escapes every value from the server before it adds the value to the page, because the text comes from a paper, a web page, or an export file from another person.
+
+### Export and import
+
+You can share stored dossiers with other people through export files, and ADR 013 records the choice. Each stored dossier has an Export the dossier button, and the library has an Export the library button and an Import a file button. The buttons show only when the page can reach the server.
+
+An export file is JSON with the latest dossier of each finished paper. It names each paper by its source key, e.g., `arxiv:2312.00752`, because the paper ids differ between libraries. When you import the file, the server sets each link between dossiers to the id of the paper with that source in your library. A link to a paper that isn't in your library shows the earlier paper's title without a link. The server skips a paper that is already in your library, and the page says how many papers it imported and how many it skipped. A dossier from an export file says in its header that it came from an export file.
 
 ## Server
 
@@ -82,7 +88,7 @@ The server in `src/server/unpackai_server/` takes a source, e.g., an arXiv link,
 2. The compare call links the new ideas to the ideas in earlier dossiers. The server skips the call when the library has no other finished dossier. ADR 012 records the choice.
 3. The plain-writing call rewrites every prose field, with the plain-writing skill from `.claude/skills/plain-writing/SKILL.md` as the system prompt. The server keeps only the rewritten prose. Statuses, evidence labels, and numbers come from the earlier calls, so the rewrite can't change them.
 
-The server stores a dossier only after the plain-writing call succeeds, so every stored dossier has gone through the skill. After the plain-writing call, the server runs the text check from `text_check.py` on every prose field, and it stores the problems it finds with the dossier for review in the API. If either skill file is missing, the unpack stops with an error.
+The server stores a dossier that it unpacked only after the plain-writing call succeeds, so every dossier that the server unpacks has gone through the skill. After the plain-writing call, the server runs the text check from `text_check.py` on every prose field, and it stores the problems it finds with the dossier for review in the API. If either skill file is missing, the unpack stops with an error.
 
 Every call uses `claude-opus-5-5` with adaptive thinking and streaming. They also use the `fallbacks: "default"` setting, so if Claude declines a request, the API tries Anthropic's recommended fallback model. The `generations` table records which model answered. You can set a different model with the `UNPACKAI_MODEL` variable when you run `scripts/compose-up.sh`.
 
@@ -97,8 +103,13 @@ Every call uses `claude-opus-5-5` with adaptive thinking and streaming. They als
 | `GET /api/papers/{id}` | Returns one paper with its latest dossier, the step that is running or that failed, and the calls to Claude without the raw output. It also lists the ideas in later dossiers that link to the paper's ideas. |
 | `POST /api/papers/{id}/retry` | Starts a failed unpack again from the stored source. A paper from pasted text can't start again this way, because the server stores only a hash of the text. |
 | `GET /api/papers/{id}/generations` | Returns every call to Claude for the paper, with the model, the token counts, and the raw output |
+| `GET /api/export` | Returns an export file with the latest dossier of every finished paper |
+| `GET /api/papers/{id}/export` | Returns an export file with the latest dossier of one finished paper |
+| `POST /api/import` | Adds the papers in an export file to the library, and returns the added and the skipped papers. The body is the file, up to 20 MB. |
 
 The interactive API documentation is at `/api/docs`. If you send the same source twice, the server returns the stored paper without calling Claude again. It calls Claude again only if the first unpack failed. The server drops query strings and fragments from arXiv links, so different links to one paper map to one stored paper.
+
+The server checks every dossier in an export file against the dossier schema before it stores any of them, because the person who sends the file can change it. If one paper has a problem, the server stores none of the papers and says which paper has the problem. The server also runs the text check on each imported dossier.
 
 When the server starts, it marks every paper that was still queued or running as failed, because a stopped server can't finish the unpacks. The server keeps the step of each unpack in memory, so after a restart the page can't show the step where a failed unpack stopped.
 
@@ -110,7 +121,7 @@ The database is the SQLite file `/data/unpackai.sqlite3` in the `app` container,
 | --- | --- |
 | `papers` | One row for each source, with its status and any error |
 | `generations` | One row for each call to Claude, with the request id, the stop reason, the token counts, the time taken, and the raw output |
-| `dossiers` | Each finished dossier as JSON, with a version number for each paper and the list of text problems |
+| `dossiers` | Each finished dossier as JSON, with a version number for each paper, the list of text problems, and the origin, which is `unpack` or `import` |
 
 The database keeps its schema version in `PRAGMA user_version`. The volume stays when you stop or rebuild the containers, and `docker compose down -v` deletes it with every stored dossier.
 
@@ -150,9 +161,9 @@ The root filesystem of the `app` container isn't read-only, because Compose copi
 The `checks` container first runs the text check on the page and on the Markdown documentation, except the copied plain-writing skill, whose examples break the rules on purpose. It then runs `tests/web/check_dossiers.js`, which opens every tab of every dossier in Chromium, at desktop width and at phone width.
 
 1. First, the browser check opens the page as a file.
-2. Second, it opens the page from the fake server in `tests/web/fake_server.js`. The fake server answers the API requests with a stored dossier, a running unpack, and a failed unpack, so the check needs no network and no key.
+2. Second, it opens the page from the fake server in `tests/web/fake_server.js`. The fake server answers the API requests with a stored dossier, an imported dossier, a running unpack, and a failed unpack, so the check needs no network and no key.
 
-The browser check reports script errors, tabs that show the wrong panel, and pages that scroll sideways on a phone. With the fake server, it also checks the library, the progress in the command bar, the Try again button, and the escaping of HTML from the server. It saves a screenshot of every tab when the repository root has a `shots` folder that anyone can write to, e.g., after `mkdir -p shots && chmod 777 shots`.
+The browser check reports script errors, tabs that show the wrong panel, and pages that scroll sideways on a phone. With the fake server, it also checks the library, the progress in the command bar, the Try again button, the export and import buttons, and the escaping of HTML from the server. It saves a screenshot of every tab when the repository root has a `shots` folder that anyone can write to, e.g., after `mkdir -p shots && chmod 777 shots`.
 
 On Windows, run the scripts in WSL or Git Bash. When neither `security` nor `secret-tool` is installed, the scripts use the Python `keyring` package on the host.
 
@@ -169,4 +180,5 @@ The full app would process each new paper in a fixed order, and the server alrea
 | Fill in the dossier fields, e.g., the new ideas, the claims, and the numbers with their sources | Built. The first call returns the fields as JSON. |
 | Compare the paper with earlier dossiers, so reused ideas are marked as inherited | Built. The compare call links each new idea to the same idea or the idea it builds on in an earlier dossier (ADR 012). It doesn't see the sample dossiers, and a large library will need a search step that picks the closest dossiers first. |
 | Rewrite every paragraph with the plain-writing skill | Built. The second call rewrites the prose, and the server stores a dossier only after the rewrite succeeds. |
+| Share dossiers with other people | Built. You export dossiers to a file, and another person imports the file into their library (ADR 013). |
 | Show the dossier in the page, with interactive figures filled in from the paper's numbers | Built in part. The page shows each stored dossier, and it lists the suggested figures without building them. |

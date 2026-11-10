@@ -4,7 +4,8 @@ Tables:
 - papers: one row per source (arXiv paper, PDF URL, blog post, or pasted text)
 - generations: one row per call to Claude, with the model, token counts, and
   the raw output
-- dossiers: each finished dossier, with a version number per paper
+- dossiers: each finished dossier, with a version number per paper, and
+  "unpack" or "import" as its origin
 """
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS papers (
@@ -56,6 +57,7 @@ CREATE TABLE IF NOT EXISTS dossiers (
     version       INTEGER NOT NULL,
     content       TEXT NOT NULL,
     text_problems TEXT NOT NULL,
+    origin        TEXT NOT NULL DEFAULT 'unpack' CHECK (origin IN ('unpack', 'import')),
     created_at    TEXT NOT NULL,
     UNIQUE (paper_id, version)
 );
@@ -78,6 +80,13 @@ class Database:
         if self.path != ":memory:":
             self._conn.execute("PRAGMA journal_mode = WAL")
         self._conn.executescript(SCHEMA)
+        # Version 1 had no origin column, and CREATE TABLE IF NOT EXISTS
+        # doesn't add a column to a table that already exists.
+        columns = {r["name"] for r in self._conn.execute("PRAGMA table_info(dossiers)")}
+        if "origin" not in columns:
+            self._conn.execute(
+                "ALTER TABLE dossiers ADD COLUMN origin TEXT NOT NULL DEFAULT 'unpack' CHECK (origin IN ('unpack', 'import'))"
+            )
         self._conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         self._conn.commit()
 
@@ -207,6 +216,68 @@ class Database:
                         "relation": link["relation"],
                     })
         return out
+
+    def finished_dossiers(self, paper_ids: list[int] | None = None) -> list[dict[str, Any]]:
+        """Return the source and the latest dossier of each finished paper, or of the given papers."""
+        with self.tx() as c:
+            rows = c.execute(
+                "SELECT p.id, p.source, p.source_kind, d.version, d.content FROM papers p JOIN dossiers d ON d.paper_id = p.id "
+                "WHERE p.status = 'done' AND d.version = (SELECT MAX(version) FROM dossiers WHERE paper_id = p.id) ORDER BY p.id"
+            ).fetchall()
+        wanted = None if paper_ids is None else set(paper_ids)
+        return [
+            {"paper_id": r["id"], "source": r["source"], "source_kind": r["source_kind"], "version": r["version"], "content": json.loads(r["content"])}
+            for r in rows
+            if wanted is None or r["id"] in wanted
+        ]
+
+    def source_keys(self) -> dict[int, str]:
+        """Map each paper id to its source key."""
+        with self.tx() as c:
+            return {r["id"]: r["source"] for r in c.execute("SELECT id, source FROM papers")}
+
+    def import_papers(self, items: list[dict[str, Any]], finish) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Store papers and dossiers from an export file in one transaction.
+
+        Each item has a source, a source_kind, a dossier, and its text
+        problems. A paper whose source is already in the library is skipped,
+        unless its unpack failed. Then the imported dossier replaces the
+        failed unpack. After the papers are stored, finish(dossier, paper_id,
+        ids) returns the dossier to store, where ids maps the source of every
+        finished paper to its id, so the links between dossiers can be set.
+        Return the lists of added and skipped papers.
+        """
+        added, skipped, stored = [], [], []
+        with self.tx() as c:
+            for item in items:
+                meta = item["dossier"]["paper"]
+                fields = (meta["title"], meta["org"], meta["published"], meta["paper_type"], now())
+                row = c.execute("SELECT id, status FROM papers WHERE source = ?", (item["source"],)).fetchone()
+                if row and row["status"] != "failed":
+                    skipped.append({"paper_id": row["id"], "source": item["source"], "title": meta["title"]})
+                    continue
+                if row:
+                    c.execute(
+                        "UPDATE papers SET status='done', error=NULL, title=?, org=?, published=?, paper_type=?, updated_at=? WHERE id=?",
+                        (*fields, row["id"]),
+                    )
+                    paper_id = row["id"]
+                else:
+                    paper_id = c.execute(
+                        "INSERT INTO papers (source, source_kind, title, org, published, paper_type, status, created_at, updated_at) "
+                        "VALUES (?, ?, ?, ?, ?, ?, 'done', ?, ?)",
+                        (item["source"], item["source_kind"], *fields, now()),
+                    ).lastrowid
+                stored.append((paper_id, item))
+                added.append({"paper_id": paper_id, "source": item["source"], "title": meta["title"]})
+            ids = {r["source"]: r["id"] for r in c.execute("SELECT id, source FROM papers WHERE status = 'done'")}
+            for paper_id, item in stored:
+                (latest,) = c.execute("SELECT COALESCE(MAX(version), 0) FROM dossiers WHERE paper_id = ?", (paper_id,)).fetchone()
+                c.execute(
+                    "INSERT INTO dossiers (paper_id, version, content, text_problems, origin, created_at) VALUES (?, ?, ?, ?, 'import', ?)",
+                    (paper_id, latest + 1, json.dumps(finish(item["dossier"], paper_id, ids)), json.dumps(item["text_problems"]), now()),
+                )
+        return added, skipped
 
     def latest_dossier(self, paper_id: int) -> dict[str, Any] | None:
         with self.tx() as c:

@@ -234,3 +234,46 @@ def prose_values(doc: dict) -> list[tuple[str, str]]:
         for i, (c, k) in enumerate(_get_all(doc, path.split("."))):
             vals.append((f"{path}#{i}", c[k]))
     return vals
+
+
+def shape_problem(value: Any, schema: dict[str, Any], path: str = "") -> str | None:
+    """Return the first place where the value doesn't match the schema, or None.
+
+    The check covers the parts of JSON schema that DOSSIER_SCHEMA uses, i.e.,
+    objects with required keys and no other keys, arrays, strings, integers,
+    booleans, and enums. The server uses it on dossiers from export files,
+    because those dossiers didn't come from a call with structured output.
+    """
+    where = path or "the dossier"
+    t = schema.get("type")
+    if t == "object":
+        if not isinstance(value, dict):
+            return f"{where} must be an object"
+        for key in schema["required"]:
+            if key not in value:
+                return f"{where} has no {key!r} field"
+        for key in value:
+            if key not in schema["properties"]:
+                return f"{where} has an unknown field {key!r}"
+        for key, sub in schema["properties"].items():
+            problem = shape_problem(value[key], sub, f"{path}.{key}" if path else key)
+            if problem:
+                return problem
+        return None
+    if t == "array":
+        if not isinstance(value, list):
+            return f"{where} must be a list"
+        for i, item in enumerate(value):
+            problem = shape_problem(item, schema["items"], f"{path}[{i}]")
+            if problem:
+                return problem
+        return None
+    if t == "string" and not isinstance(value, str):
+        return f"{where} must be a string"
+    if t == "boolean" and not isinstance(value, bool):
+        return f"{where} must be true or false"
+    if t == "integer" and (not isinstance(value, int) or isinstance(value, bool)):
+        return f"{where} must be a whole number"
+    if "enum" in schema and value not in schema["enum"]:
+        return f"{where} must be one of {', '.join(schema['enum'])}"
+    return None

@@ -6,6 +6,7 @@ and the server makes every call to Claude with the key from the Docker secret
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
@@ -13,12 +14,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .db import Database
 from .safe_logging import configure_logging
 from . import secret_store
+from .share import MAX_BYTES, ImportProblem, build_export, import_export
 from .unpack import INDEX_HTML, UnpackError, Unpacker, parse_source, source_from_key
 
 log = logging.getLogger("unpackai.http")
@@ -113,6 +115,41 @@ def create_app(db_path: str | Path | None = None, unpacker: Unpacker | None = No
             raise HTTPException(409, "Only a failed unpack can be started again.")
         background.add_task(request.app.state.unpacker.run, paper_id, source)
         return {"paper_id": paper_id, "queued": True, "paper": db.get_paper(paper_id)}
+
+    def download(data: dict, filename: str) -> JSONResponse:
+        return JSONResponse(data, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+    @app.get("/api/export")
+    def export_library(request: Request):
+        return download(build_export(request.app.state.db), "unpackai-library.json")
+
+    @app.get("/api/papers/{paper_id}/export")
+    def export_paper(paper_id: int, request: Request):
+        db: Database = request.app.state.db
+        p = db.get_paper(paper_id)
+        if not p:
+            raise HTTPException(404, "No paper with that id.")
+        if p["status"] != "done":
+            raise HTTPException(409, "Only a finished dossier can be exported.")
+        return download(build_export(db, [paper_id]), f"unpackai-paper-{paper_id}.json")
+
+    @app.post("/api/import")
+    async def import_file(request: Request):
+        # The body is read in parts, so a large upload stops at the limit
+        # instead of filling the memory.
+        body = bytearray()
+        async for part in request.stream():
+            body += part
+            if len(body) > MAX_BYTES:
+                raise HTTPException(413, f"The file is larger than {MAX_BYTES // (1024 * 1024)} MB.")
+        try:
+            data = json.loads(body)
+        except ValueError:
+            raise HTTPException(400, "The file isn't valid JSON.")
+        try:
+            return import_export(request.app.state.db, data)
+        except ImportProblem as exc:
+            raise HTTPException(400, str(exc))
 
     @app.get("/api/papers/{paper_id}/generations")
     def generations(paper_id: int, request: Request):

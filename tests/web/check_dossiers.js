@@ -17,7 +17,7 @@
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
-const { ORIGIN, routeFakeServer } = require('./fake_server');
+const { ORIGIN, routeFakeServer, imports } = require('./fake_server');
 
 const file_url = 'file://' + path.resolve(__dirname, '../../src/web/index.html');
 const [outDir, onlyDoc] = process.argv.slice(2);
@@ -87,7 +87,28 @@ async function checkServerViews(page, v, label) {
   expect(later.length === 2 && later[0].includes('<img') && later[1].includes('reuses "Structured state space layer"'), `the earlier dossier lists the later ideas as [${later}]`);
   const injectedLater = await page.evaluate(() => !!document.querySelector('.doc[data-doc="p4"] img'));
   expect(!injectedLater, 'the list of later papers doesn\'t escape the title');
+
+  // A dossier from an export file says so, and its link to a paper that
+  // isn't in the library shows the title with no link.
+  expect((await text('.doc[data-doc="p4"] .ptype-note')).includes('came from an export file'), 'the imported dossier doesn\'t say that it came from an export file');
+  expect((await text('.doc[data-doc="p1"] .ptype-note')).includes('The server unpacked the source'), 'the unpacked dossier doesn\'t say that the server unpacked it');
+  const missing = await page.$$eval('.doc[data-doc="p4"] .gen-link', els => els.map(e => [e.textContent, !!e.querySelector('a')]));
+  expect(missing.length === 1 && missing[0][0] === 'Builds on "HiPPO matrix" in HiPPO: Recurrent Memory with Optimal Polynomial Projections' && !missing[0][1], `the link to a missing paper is [${missing}]`);
   if (outDir && (!onlyDoc || onlyDoc === 'p4')) await page.screenshot({ path: path.join(outDir, `${v.name}-server-p4-later.png`), fullPage: true });
+
+  // Each stored dossier has an export link, and the library has export and import buttons.
+  const exportHref = await page.getAttribute('.doc[data-doc="p4"] .gen-share a', 'href');
+  expect(exportHref === '/api/papers/4/export', `the export link of p4 is "${exportHref}"`);
+  expect(await page.isVisible('#apiShare'), 'the export and import buttons don\'t show');
+  expect((await page.getAttribute('#apiShare a', 'href')) === '/api/export', 'the library export link is wrong');
+  const file = JSON.stringify({ format: 'unpackai-export', version: 1, papers: [] });
+  imports.length = 0;
+  await page.setInputFiles('#importFile', { name: 'shared.json', mimeType: 'application/json', buffer: Buffer.from(file) });
+  await page.waitForTimeout(300);
+  expect(imports.length === 1 && imports[0] === file, 'the import doesn\'t send the file to POST /api/import');
+  const imported = await text('#pipelineResult');
+  expect(imported.startsWith('Imported 1 paper from shared.json. Skipped 1 paper that was already in the library.'), `the import result says "${imported}"`);
+  if (outDir && (!onlyDoc || onlyDoc === 'p4')) await page.screenshot({ path: path.join(outDir, `${v.name}-server-import.png`) });
 
   // Opening a paper that is still running shows its step.
   await page.click('#libList >> text=Transformers are SSMs');
@@ -120,6 +141,7 @@ async function checkServerViews(page, v, label) {
     await page.goto(file_url);
     await page.waitForTimeout(300);
     await checkTabs(page, v, label, 'file');
+    if (await page.isVisible('#apiShare')) problems.push(`${label}: the export and import buttons show without a server`);
     await page.close();
 
     label = `${v.name}, server`;

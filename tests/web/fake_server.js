@@ -5,7 +5,9 @@
 // The fake server has four papers. Paper 1 is done, and its title holds
 // HTML, so the check can test that the page escapes text from the server.
 // Its ideas link to the ideas of paper 4, an earlier paper that is also done.
-// Paper 2 is in the plain-writing step, and paper 3 failed.
+// Paper 2 is in the plain-writing step, and paper 3 failed. Paper 4 came from
+// an export file, and one of its ideas links to a paper that isn't in the
+// library, so the link has no paper id.
 const fs = require('fs');
 const path = require('path');
 
@@ -50,7 +52,10 @@ const S4_DOSSIER = {
     { id: 'overview', title: 'Overview', lede: 'The table lists the new ideas in the paper.' },
     { id: 'evidence', title: 'Evidence', lede: 'Each claim has a tag for the kind of evidence behind it.' },
   ],
-  novelties: [{ what: 'Structured state space layer', status: 'novel', replaces: 'Attention', why: 'The layer has a fast convolution form.', where: 'overview', earlier: null }],
+  novelties: [
+    { what: 'Structured state space layer', status: 'novel', replaces: 'Attention', why: 'The layer has a fast convolution form.', where: 'overview',
+      earlier: { paper_id: null, title: 'HiPPO: Recurrent Memory with Optimal Polynomial Projections', published: 'Aug 2020', idea: 'HiPPO matrix', relation: 'builds_on' } },
+  ],
   claims: [{ heading: 'Long Range Arena', text: 'S4 solves the Path-X task.', evidence: 'Benchmark', evidence_class: 'ok', where: 'evidence' }],
   figures: [],
   numbers: [],
@@ -70,33 +75,43 @@ const PAPERS = {
   4: { ...base, id: 4, source: 'arxiv:2111.00396', source_kind: 'arxiv', title: S4_TITLE, org: 'Stanford University', published: 'Nov 2021', paper_type: 'model', status: 'done' },
 };
 const DETAIL = {
-  1: { step: 'text_check', calls: CALLS, later: [], dossier: { version: 2, content: DOSSIER, text_problems: [
+  1: { step: 'text_check', calls: CALLS, later: [], dossier: { version: 2, origin: 'unpack', content: DOSSIER, text_problems: [
     { field: 'claims[].text#1', problem: 'overused word (robust)' },
     { field: 'thesis#0', problem: 'em dash' },
   ] } },
   2: { step: 'plain_writing', calls: CALLS.slice(0, 1), later: [], dossier: null },
   3: { step: 'extract', calls: [], later: [], dossier: null },
-  4: { step: 'text_check', calls: CALLS, dossier: { version: 1, content: S4_DOSSIER, text_problems: [] }, later: [
+  4: { step: 'text_check', calls: CALLS, dossier: { version: 1, origin: 'import', content: S4_DOSSIER, text_problems: [] }, later: [
     { paper_id: 1, title: XSS_TITLE, published: 'Dec 2023', idea: 'Selection mechanism', earlier_idea: 'Structured state space layer', relation: 'builds_on' },
     { paper_id: 1, title: XSS_TITLE, published: 'Dec 2023', idea: 'Structured state space layer', earlier_idea: 'Structured state space layer', relation: 'same_idea' },
   ] },
 };
 
-const json = (route, status, body) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+const json = (route, status, body, headers) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body), headers });
+const EXPORT = papers => ({ format: 'unpackai-export', version: 1, exported_at: '2026-11-10T10:00:00+00:00', papers });
+const attachment = name => ({ 'content-disposition': `attachment; filename="${name}"` });
+// The check reads the bodies of the import requests from here.
+const imports = [];
 
 async function routeFakeServer(page) {
   await page.route(`${ORIGIN}/**`, route => {
     const req = route.request();
     const url = new URL(req.url());
-    const m = url.pathname.match(/^\/api\/papers\/(\d+)(\/retry)?$/);
+    const m = url.pathname.match(/^\/api\/papers\/(\d+)(\/retry|\/export)?$/);
     if (url.pathname === '/') return route.fulfill({ status: 200, contentType: 'text/html', body: fs.readFileSync(INDEX) });
     if (url.pathname === '/api/health') return json(route, 200, { ok: true, api_key_configured: true });
     if (url.pathname === '/api/papers') return json(route, 200, Object.values(PAPERS).reverse());
     if (url.pathname === '/api/unpack' && req.method() === 'POST') return json(route, 202, { paper_id: 2, queued: false, paper: PAPERS[2] });
+    if (url.pathname === '/api/export') return json(route, 200, EXPORT([]), attachment('unpackai-library.json'));
+    if (url.pathname === '/api/import' && req.method() === 'POST') {
+      imports.push(req.postData());
+      return json(route, 200, { added: [{ paper_id: 4, source: PAPERS[4].source, title: S4_TITLE }], skipped: [{ paper_id: 1, source: PAPERS[1].source, title: XSS_TITLE }] });
+    }
+    if (m && PAPERS[m[1]] && m[2] === '/export') return json(route, 200, EXPORT([]), attachment(`unpackai-paper-${m[1]}.json`));
     if (m && PAPERS[m[1]] && m[2] && req.method() === 'POST') return json(route, 202, { paper_id: +m[1], queued: true, paper: PAPERS[m[1]] });
     if (m && PAPERS[m[1]] && !m[2]) return json(route, 200, { ...PAPERS[m[1]], ...DETAIL[m[1]] });
     return json(route, 404, { detail: 'Not found' });
   });
 }
 
-module.exports = { ORIGIN, routeFakeServer };
+module.exports = { ORIGIN, routeFakeServer, imports };

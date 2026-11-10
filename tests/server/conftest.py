@@ -44,6 +44,16 @@ DRAFT = {
 }
 
 
+S4_DRAFT = {
+    **DRAFT,
+    "paper": {**DRAFT["paper"], "title": "Efficiently Modeling Long Sequences with Structured State Spaces", "published": "Nov 2021", "source_url": "https://arxiv.org/pdf/2111.00396"},
+    "novelties": [
+        {"what": "Structured state space layer", "status": "novel", "replaces": "Attention", "why": "The layer has a fast convolution form.", "where": "overview"},
+        {"what": "HiPPO initialization", "status": "inh", "replaces": "Random initialization", "why": "The matrix remembers the past input.", "where": "overview"},
+    ],
+}
+
+
 def rewrite(d):
     out = copy.deepcopy(d)
     out["thesis"] = "Mamba is a sequence model that uses selective state spaces instead of attention."

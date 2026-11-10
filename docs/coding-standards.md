@@ -39,6 +39,7 @@ The text check in `src/server/unpackai_server/text_check.py` finds the problems 
 - Read the API key only with `secret_store.read_api_key()`. Don't read it from an environment variable, any other file, or a request header.
 - Log only the method, the path, the status code, and the time taken for a request. Don't log headers, query strings, or bodies, and pass every error message through `describe_error()` before you store or log it.
 - Keep error messages short and specific, and say what the user can do, e.g., which script to run.
+- Treat an export file like text from a paper, because another person can change it. Check it with `share.check_export()` before you store any part of it, and don't trust a paper id from the file.
 
 ## Tests
 

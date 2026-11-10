@@ -299,17 +299,22 @@ class Unpacker:
             self.last_step[paper_id] = "plain_writing"
             final = self.plain_writing(paper_id, draft)
             self.last_step[paper_id] = "text_check"
-            problems = [
-                {"field": field, "problem": problem}
-                for field, text in prose_values(final)
-                for _, problem, _ in check_lines([text])
-            ]
+            problems = text_problems(final)
             version = self.db.add_dossier(paper_id, final, problems)
             self.db.set_status(paper_id, "done")
             log.info("paper %s: stored dossier version %s with %s text problem(s)", paper_id, version, len(problems))
         except Exception as exc:
             self.db.set_status(paper_id, "failed", describe_error(exc))
             log.warning("paper %s: unpack failed: %s", paper_id, describe_error(exc))
+
+
+def text_problems(dossier: dict) -> list[dict[str, str]]:
+    """Run the text check on every prose field of a dossier."""
+    return [
+        {"field": field, "problem": problem}
+        for field, text in prose_values(dossier)
+        for _, problem, _ in check_lines([text])
+    ]
 
 
 def describe_error(exc: Exception) -> str:

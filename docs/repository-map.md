@@ -63,8 +63,9 @@ UnpackAI/
 | `__main__.py` | Starts uvicorn with the safe log setup |
 | `app.py` | Defines the HTTP endpoints, serves the page, and writes the request log |
 | `unpack.py` | Parses sources and makes every call to Claude, with the extract, compare, and plain-writing prompts |
-| `dossier_schema.py` | Defines the JSON schemas of a dossier and of the compare links, adds the links to a draft, and merges the rewritten prose into the draft |
+| `dossier_schema.py` | Defines the JSON schemas of a dossier and of the compare links, adds the links to a draft, merges the rewritten prose into the draft, and checks that a dossier matches the schema |
 | `db.py` | Creates the SQLite tables, reads and writes papers, generations, and dossiers, and finds the links between dossiers |
+| `share.py` | Builds export files, and checks and imports export files from other libraries |
 | `secret_store.py` | Reads the API key from the Docker secret |
 | `safe_logging.py` | Caps the library loggers, and redacts the key and auth headers in every log handler |
 | `text_check.py` | Checks text for the plain-writing rules that a script can check. The server imports it, and the checks container runs it as a script. |
@@ -73,11 +74,12 @@ UnpackAI/
 
 | File | What it has |
 | --- | --- |
-| `tests/server/conftest.py` | The fake Claude API, the temporary Docker secret file, and the example dossier draft |
+| `tests/server/conftest.py` | The fake Claude API, the temporary Docker secret file, and the example dossier drafts |
 | `tests/server/test_server.py` | The tests for the endpoints, the unpack steps, the secret, and the logs |
+| `tests/server/test_share.py` | The tests for export files, imports, and bad files |
 | `tests/server/requirements.txt` | The server packages plus pytest |
 | `tests/web/check_dossiers.js` | Opens every tab of every dossier, with the page open as a file and from the fake server, and reports problems |
-| `tests/web/fake_server.js` | Answers the page's API requests with a stored dossier, a running unpack, and a failed unpack |
+| `tests/web/fake_server.js` | Answers the page's API requests with a stored dossier, an imported dossier, a running unpack, and a failed unpack |
 
 ## Decisions
 
@@ -95,6 +97,7 @@ UnpackAI/
 | [010](adr/010-add-papers-by-hand.md) | Papers are added by hand, and UnpackAI doesn't collect them on its own |
 | [011](adr/011-page-builds-stored-dossiers-from-json.md) | The page builds each stored dossier from the JSON with one template |
 | [012](adr/012-compare-with-earlier-dossiers-in-a-separate-call.md) | A separate call links the new ideas to the ideas in earlier dossiers, and it returns no prose |
+| [013](adr/013-share-dossiers-with-export-files.md) | People share dossiers with export files, which the server checks before it imports them |
 
 ## Where new work goes
 
@@ -106,7 +109,7 @@ UnpackAI/
 | A new endpoint | `src/server/unpackai_server/app.py`, with a test in `tests/server/test_server.py`. If the page calls it, add it to `tests/web/fake_server.js` too. |
 | A change to how the page shows stored dossiers | `genBuild()` in `src/web/index.html`, and the fake dossier in `tests/web/fake_server.js` |
 | A change to how the server calls Claude | `src/server/unpackai_server/unpack.py` |
-| A new dossier field | `src/server/unpackai_server/dossier_schema.py`, and `PROSE_FIELDS` if the field is prose |
+| A new dossier field | `src/server/unpackai_server/dossier_schema.py`, and `PROSE_FIELDS` if the field is prose. If the export file needs a change for the field, raise `VERSION` in `share.py`. |
 | A new table or column | `src/server/unpackai_server/db.py`. Raise `SCHEMA_VERSION`, and add a step that changes databases that already exist, because `CREATE TABLE IF NOT EXISTS` doesn't add columns. |
 | A new Python package for the server | `src/server/requirements.txt` |
 | A new file that a container needs | The `COPY` lines in `docker/app.Dockerfile` or `docker/checks.Dockerfile` |
